@@ -42,14 +42,16 @@ model Pegawai {
 }
 
 model User {
-  id           String    @id @default(cuid())
-  username     String    @unique
-  email        String    @unique
-  passwordHash String
-  role         Role      @default(PEGAWAI)
-  isActive     Boolean   @default(true)
-  lastLoginAt  DateTime?
-  pegawai      Pegawai?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id               String    @id @default(cuid())
+  username         String    @unique
+  email            String    @unique
+  passwordHash     String
+  role             Role      @default(PEGAWAI)
+  isActive         Boolean   @default(true)
+  lastLoginAt      DateTime?
+  failedLoginCount Int       @default(0)
+  lockedUntil      DateTime?
+  pegawai          Pegawai?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 }
