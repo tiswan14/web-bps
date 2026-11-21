@@ -1,0 +1,55 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  OPERATOR
+  PEGAWAI
+  BENDAHARA
+  PPK
+}
+
+model Fungsi {
+  id        String    @id @default(cuid())
+  nama      String    @unique
+  pegawai   Pegawai[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Pegawai {
+  id            String   @id @default(cuid())
+  nama          String
+  nip           String   @unique
+  email         String?
+  nipBps        String?
+  golonganAkhir String?
+  pangkat       String?
+  jabatan       String?
+  aktif         Boolean  @default(true)
+  fungsiId      String?
+  fungsi        Fungsi?  @relation(fields: [fungsiId], references: [id], onDelete: SetNull)
+  userId        String?  @unique
+  user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model User {
+  id           String    @id @default(cuid())
+  username     String    @unique
+  email        String    @unique
+  passwordHash String
+  role         Role      @default(PEGAWAI)
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  pegawai      Pegawai?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
