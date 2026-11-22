@@ -67,10 +67,10 @@ export async function loginAction(
     data: { failedLoginCount: 0, lockedUntil: null, lastLoginAt: new Date() },
   })
   await createSession(user.id)
-  redirect('/dashboard')
+  redirect('/dashboard?auth=login-success')
 }
 
 export async function logoutAction(): Promise<void> {
   await deleteSession()
-  redirect('/login')
+  redirect('/login?auth=logout-success')
 }

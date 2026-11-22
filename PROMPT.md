@@ -103,4 +103,82 @@ BELUM DIKERJAKAN / BELUM DIPUTUSKAN:
 3. Setelah saya menyetujui struktur modular, pindahkan komponen login ke modul auth dan buat layout dasar.
 4. Tambah model Surat dan Disposisi lewat migrasi baru, lalu halaman daftar, form "Catat Surat", dan Disposisi.
 
+## KEPUTUSAN ARSITEKTUR (sudah disepakati)
+- Satu aplikasi dengan banyak modul (BUKAN SaaS/multi-tenant; single-tenant untuk BPS Pangandaran).
+- Data utama di database PostgreSQL; spreadsheet hanya untuk impor data awal dan ekspor laporan.
+- Stack: Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4, shadcn/ui, Prisma 7.10.1 (CLI dan client dikunci sama persis, JANGAN naik ke Prisma 8 rc), PostgreSQL di Neon, Node 24.
+- DATA LEWAT RESTful API (Route Handlers di src/app/api/...). Hanya login dan logout yang tetap Server Action (karena mengatur cookie sesi). Satu operasi satu jalur: jangan membuat Server Action dan API untuk hal yang sama. Logika bisnis tetap di modules/<fitur>/queries.ts dan actions.ts; route.ts hanya pembungkus tipis.
+- Aturan API: alamat /api/<sumber-daya> (pegawai, surat, disposisi); GET baca, POST buat, PATCH ubah (termasuk menonaktifkan), DELETE hanya kalau memang boleh hapus permanen. Sukses: { "data": ... }; daftar: { "data": [...], "meta": { page, pageSize, total } } dengan query ?page&pageSize&q; gagal: { "error": { "code", "message" } }. Kode status: 200, 201, 400, 401, 403, 404, 409, 500.
+- Keamanan API: setiap handler WAJIB memanggil requireApiUser(roles?) (401 kalau belum login, 403 kalau bukan haknya, balasan JSON, bukan redirect). Untuk POST/PATCH/DELETE header Origin harus sama dengan origin aplikasi (pengecekan di withApi). src/proxy.ts membalas 401 JSON untuk /api/* tanpa sesi sah, dan mengalihkan halaman biasa ke /login.
+- Tabel Pengelola Anggaran, Mitra, foto pegawai, unggah file, dan Docker: DITUNDA (belum diminta).
+- Hanya Admin yang mengelola akun. Tidak ada pendaftaran mandiri. Akun dinonaktifkan, tidak dihapus permanen.
+- Login memakai USERNAME ATAU EMAIL (satu kolom isian; kalau mengandung "@" dicari lewat email, selain itu lewat username; semua huruf kecil).
+- Sesi login 12 jam. Cookie berisi userId yang ditandatangani dengan jose (HS256), httpOnly, sameSite lax, secure di produksi. Role dan status aktif dibaca ulang dari database setiap permintaan (getCurrentUser).
+- Pesan error login selalu sama. Akun terkunci 15 menit setelah 5 kali gagal (per akun, belum per IP). Password dicek ke hash palsu kalau akun tidak ada.
+- Hak akses lewat User.role, bukan jabatan.
+- Penamaan: tabel acuan "Organik" diganti "Pegawai".
+
+## DATABASE
+Neon: proyek "web-bps-dev", region Singapore, hanya layanan Postgres, nama database "web-bps". Koneksi saat ini memakai host pooled (-pooler); migrasi tetap lolos. .env diabaikan Git (sudah dicek di dua perangkat).
+Variabel .env: DATABASE_URL, SEED_ADMIN_PASSWORD, SEED_OPERATOR_PASSWORD, SESSION_SECRET (jangan pernah diminta isinya).
+
+Schema prisma/schema.prisma (generator provider "prisma-client", output "../src/generated/prisma"; client diimpor dari "@/generated/prisma/client"; di Prisma 7 PrismaClient butuh adapter @prisma/adapter-pg, lihat src/lib/prisma.ts):
+  enum Role: ADMIN, OPERATOR, PEGAWAI, BENDAHARA, PPK
+  Fungsi: id, nama (unik), pegawai[], createdAt, updatedAt
+  Pegawai: id, nama, nip (unik, 18 digit tanpa spasi), email?, nipBps? (NIP lama 9 digit), golonganAkhir?, pangkat?, jabatan?, aktif (default true), fungsiId? -> Fungsi (SetNull), userId? (unik) -> User (SetNull), disposisis (relasi balik), createdAt, updatedAt
+  User: id, username (unik), email (unik), passwordHash, role (default PEGAWAI), isActive (default true), lastLoginAt?, failedLoginCount (default 0), lockedUntil?, pegawai?, surats (relasi balik), disposisis (relasi balik), createdAt, updatedAt
+  enum JenisSurat: MASUK, KELUAR; enum SifatSurat: BIASA, PENTING
+  Surat: id, jenis, nomor (TIDAK unik, di data acuan ada nomor "1"), tanggal (@db.Date), asalTujuan, perihal, sifat (default BIASA), pengantaran? (teks bebas, arti belum jelas), status? (teks bebas, pilihan belum jelas), dicatatOleh -> User (Restrict, relasi bernama pencatat), disposisi[], createdAt, updatedAt; index tanggal dan nomor
+  Disposisi: id, suratId -> Surat (Restrict), kepadaPegawaiId -> Pegawai (Restrict, relasi bernama kepada), dicatatOleh -> User (Restrict, relasi bernama pencatat), instruksi, tanggal (@db.Date), createdAt, updatedAt; index suratId dan kepadaPegawaiId
+Relasi: satu Fungsi banyak Pegawai; satu User paling banyak satu Pegawai (kunci asing di Pegawai.userId, jadi pegawai boleh tanpa akun dan akun Admin boleh tanpa pegawai); satu User mencatat banyak Surat dan Disposisi; satu Surat banyak Disposisi; satu Pegawai menerima banyak Disposisi. Tidak ada hapus permanen (Restrict). Opsional yang disarankan tapi belum diputuskan: ganti nama relasi balik menjadi User.suratDicatat, User.disposisiDicatat, Pegawai.disposisiDiterima (hanya nama, tidak mengubah tabel).
+Komentar dokumentasi per tabel memakai "///" (belum tentu ada di file saya).
+
+## STATUS PEKERJAAN
+SELESAI dan terbukti:
+- Setup proyek web-bps (Next.js, Tailwind, shadcn/ui); Node v24.21.0 lewat nvm-windows di laptop LOQ; Prisma CLI dan client sama-sama 7.10.1 (exact); skrip install Prisma sudah disetujui lewat "npm install-scripts approve"; prisma.config.ts (sudah diganti dari prisma7.config.ts, memakai dotenv dan seed "tsx prisma/seed.ts"); src/lib/utils.ts memakai clsx + tailwind-merge (paket "cn" sudah dicopot dari dependencies langsung).
+- Neon dibuat; migrasi init dan add_username berhasil. Migrasi add_login_lock terbukti secara tidak langsung (login sukses memperbarui kolom failedLoginCount/lockedUntil/lastLoginAt).
+- Seed berhasil: 5 Fungsi, akun admin (admin@contoh.test) dan operator (operator@contoh.test), satu pegawai contoh terhubung ke operator. Dependensi: tsx, @prisma/adapter-pg (7.10.1 exact), pg, bcryptjs, @types/pg, jose.
+- Login admin berhasil di browser. GET /api/me mengembalikan { data: { id, username: "admin", email, role: "ADMIN", isActive: true, pegawai: null } } saat login, dan 401 JSON { error: { code: "UNAUTHENTICATED" } } saat belum login. Jadi proxy.ts baru dan helper API terbukti jalan.
+- Kode sudah di-push ke repo Git remote (dilaporkan oleh saya; branch main, pesan commit "feat: login, sesi, dan fondasi api").
+
+File yang sudah ada: src/lib/prisma.ts; src/lib/session-token.ts (SESSION_COOKIE_NAME, getSecretKey, verifySessionToken; aman dipakai proxy); src/lib/session.ts (createSession, readSessionUserId, deleteSession); src/lib/auth.ts (getCurrentUser dengan cache React, requireUser yang redirect ke /login); src/lib/auth-actions.ts ('use server': loginAction, logoutAction); src/lib/api.ts (ApiError, ok, requireApiUser, withApi dengan pengecekan Origin); src/app/api/me/route.ts; src/app/login/page.tsx dan login-form.tsx (useActionState, autoComplete username/current-password); src/proxy.ts; prisma/seed.ts.
+
+SUDAH DITULIS TAPI BELUM TERKONFIRMASI (jangan anggap berhasil; minta hasil uji):
+- Schema Surat dan Disposisi sudah ada di file schema.prisma versi saya, tapi hasil "npx prisma validate" dan migrasi "add_surat_disposisi" (lalu "npx prisma generate") belum dilaporkan.
+- Perbaikan impor src/components/ui/button.tsx dari "cn" menjadi "@/lib/utils": tsc terakhir yang dilaporkan hanya mengeluh di file ini. Hasil "npx tsc --noEmit" dan "npm run lint" setelah semua file login/API ditambahkan belum dilaporkan.
+- Halaman src/app/dashboard/page.tsx dan pengalihan setelah login ke /dashboard (sed pada auth-actions.ts dan login/page.tsx, serta src/app/page.tsx yang me-redirect ke /dashboard): instruksi sudah diberikan, belum terkonfirmasi diterapkan.
+- Uji browser yang belum dilaporkan: login operator (nama "Operator Contoh" dan pegawai terisi di /api/me), tombol Keluar lalu tombol Back tidak membuka halaman terlindungi, penguncian setelah 5 kali salah (coba di akun operator, bukan admin), browser menawarkan simpan password.
+- Folder berkas skill AI hasil "prisma init" (.agents/, .claude/, .windsurf/, skills-lock.json) seharusnya masuk .gitignore; belum terkonfirmasi apakah ikut ter-commit (cek dengan: git ls-files | grep -E '^(\.agents|\.claude|\.windsurf|skills-lock)').
+- Kode masih memakai kata "simarlin" sementara (cookie "simarlin_session", judul halaman "| SIMARLIN"); nama kerja yang saya pakai adalah "web bps". Ganti kalau saya minta.
+
+BELUM DIKERJAKAN / BELUM DIPUTUSKAN:
+- Memakai zod untuk validasi input API atau pemeriksaan manual: BELUM diputuskan (kamu menyarankan zod, dependensi baru, butuh persetujuan saya).
+- Struktur folder modular + atomic design (diusulkan, belum disetujui eksplisit): src/app (route tipis), src/components/{ui (shadcn = atom), molecules, organisms, templates} milik frontend dan tidak boleh memanggil Prisma atau server action, src/modules/<fitur>/{actions.ts, queries.ts, schemas.ts, types.ts, components/}, src/lib (prisma, session, auth, api, utils). Arah impor satu arah (atom -> molecule -> organism -> template -> halaman). Backend (saya) memiliki lib/, prisma/, actions/queries/schemas; frontend (dua teman) memiliki components/ dan modules/*/components. Komponen login nanti dipindah ke modules/auth/components.
+- Layout dasar (sidebar, header, route group (dashboard)), menu per role, halaman dashboard sungguhan.
+- Repo bersama untuk 3 orang dan sinkron dengan PC kantor; izin menaruh kode di laptop pribadi/GitHub pribadi belum dikonfirmasi ke mentor.
+- Koneksi Neon masih pooled; pindah ke direct kalau ada migrasi yang menggantung.
+- Aturan password minimal untuk akun asli; akun seed (password mudah) HARUS dihapus atau diganti sebelum web dipakai sungguhan atau dipublikasikan.
+
+MENUNGGU JAWABAN MENTOR (jangan diputuskan sendiri):
+- Daftar role final di Pangandaran dan apakah satu akun boleh banyak role.
+- Arti kolom Pengantaran dan Status di Surat dan daftar pilihannya; arti kolom "Dari" di Disposisi.
+- Satu surat boleh didisposisikan ke banyak pegawai atau tidak (saat ini: satu baris Disposisi per penerima); perlu unggah scan surat atau tidak.
+- Apakah struktur pengelola anggaran Pangandaran sama dengan Majalengka.
+- Hosting akhir (server BPS atau luar); cara login final; apakah mitra bisa login.
+- Nama web final (sementara "web bps").
+
+## PELAJARAN TEKNIS (supaya tidak diulang)
+- "npx prisma init" di Prisma 7 membuat file konfigurasi bernama prisma7.config.ts; harus diganti nama menjadi prisma.config.ts. .env bawaan init berisi DATABASE_URL localhost, harus diganti connection string Neon.
+- Jangan jalankan "npm audit fix --force" dan jangan naik ke Prisma 8 rc. Peringatan eslint deprecated diabaikan dulu.
+- Setelah mengubah schema: "npx prisma format", "npx prisma validate", "npx prisma migrate dev --name <nama>", lalu "npx prisma generate" (client tidak otomatis ter-generate dan folder src/generated/prisma di-gitignore).
+- Kalau Prisma menanyakan reset atau hapus data, berhenti dan tanya saya dulu.
+- Next.js 16 memakai src/proxy.ts (bukan middleware.ts) dan cookies() bersifat async.
+- Untuk menguji API dari Postman: salin cookie "simarlin_session" dari DevTools browser dan tambahkan header Origin: http://localhost:3000 untuk POST/PATCH/DELETE.
+
+## LANGKAH BERIKUTNYA (kerjakan satu per giliran, minta hasil terminal)
+1. Minta saya menempel hasil "npx prisma validate", ringkasan "npx prisma migrate dev --name add_surat_disposisi", "npx prisma generate", "npx tsc --noEmit", dan "npm run lint". Perbaiki kalau ada masalah. Jangan minta isi .env.
+2. Minta keputusan saya soal zod, lalu buat API Surat: GET dan POST /api/surat (daftar dengan paginasi dan pencarian, buat surat oleh role ADMIN atau OPERATOR), lalu GET dan PATCH /api/surat/:id. Kontrak data di modules/surat/types.ts untuk frontend.
+3. API Disposisi (kepada Pegawai, dicatat oleh akun yang login), lalu data contoh tambahan di seed kalau perlu.
+4. Setelah saya menyetujui struktur modular: pindahkan komponen login ke modules/auth, buat layout dasar (sidebar, header) dan menu per role, lalu serahkan tampilan Surat dan Disposisi ke dua teman frontend berdasarkan kontrak API.
+
 Mulailah dengan menanyakan hasil dari langkah 1.

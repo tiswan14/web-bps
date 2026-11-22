@@ -7,6 +7,8 @@ datasource db {
   provider = "postgresql"
 }
 
+// USER
+
 enum Role {
   ADMIN
   OPERATOR
@@ -15,6 +17,7 @@ enum Role {
   PPK
 }
 
+/// Tim kerja di BPS, misalnya Sosial, Neraca, Produksi, Distribusi, IPDS.
 model Fungsi {
   id        String    @id @default(cuid())
   nama      String    @unique
@@ -23,35 +26,101 @@ model Fungsi {
   updatedAt DateTime  @updatedAt
 }
 
+/// Data kepegawaian organik. Tersambung ke akun login lewat userId (boleh kosong).
 model Pegawai {
-  id            String   @id @default(cuid())
-  nama          String
-  nip           String   @unique
-  email         String?
-  nipBps        String?
-  golonganAkhir String?
-  pangkat       String?
-  jabatan       String?
-  aktif         Boolean  @default(true)
-  fungsiId      String?
-  fungsi        Fungsi?  @relation(fields: [fungsiId], references: [id], onDelete: SetNull)
-  userId        String?  @unique
-  user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                String      @id @default(cuid())
+  nama              String
+  /// 18 digit, disimpan tanpa spasi.
+  nip               String      @unique
+  email             String?
+  /// NIP lama (9 digit).
+  nipBps            String?
+  golonganAkhir     String?
+  pangkat           String?
+  jabatan           String?
+  aktif             Boolean     @default(true)
+  fungsiId          String?
+  fungsi            Fungsi?     @relation(fields: [fungsiId], references: [id], onDelete: SetNull)
+  userId            String?     @unique
+  user              User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  disposisiDiterima Disposisi[]
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
 }
 
+/// Akun login. Login boleh memakai username atau email.
 model User {
-  id               String    @id @default(cuid())
-  username         String    @unique
-  email            String    @unique
+  id               String      @id @default(cuid())
+  username         String      @unique
+  email            String      @unique
   passwordHash     String
-  role             Role      @default(PEGAWAI)
-  isActive         Boolean   @default(true)
+  role             Role        @default(PEGAWAI)
+  isActive         Boolean     @default(true)
   lastLoginAt      DateTime?
-  failedLoginCount Int       @default(0)
+  failedLoginCount Int         @default(0)
   lockedUntil      DateTime?
   pegawai          Pegawai?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  suratDicatat     Surat[]
+  disposisiDicatat Disposisi[]
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+}
+
+// SURAT
+
+/// Arah surat: masuk atau keluar.
+enum JenisSurat {
+  MASUK
+  KELUAR
+}
+
+/// Tingkat kepentingan surat.
+enum SifatSurat {
+  BIASA
+  PENTING
+  SEGERA
+  RAHASIA
+}
+
+/// Catatan surat masuk dan keluar yang dicatat oleh operator.
+model Surat {
+  id          String      @id @default(cuid())
+  jenis       JenisSurat
+  /// Tidak dibuat unik: di data acuan ada nomor yang hanya "1".
+  nomor       String
+  tanggal     DateTime    @db.Date
+  /// Asal surat kalau masuk, tujuan surat kalau keluar.
+  asalTujuan  String
+  perihal     String
+  sifat       SifatSurat  @default(BIASA)
+  /// Arti dan pilihan isinya belum dikonfirmasi mentor.
+  pengantaran String?
+  /// Arti dan pilihan isinya belum dikonfirmasi mentor.
+  status      String?
+  dicatatOleh String
+  pencatat    User        @relation(fields: [dicatatOleh], references: [id], onDelete: Restrict)
+  disposisi   Disposisi[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([tanggal])
+  @@index([nomor])
+}
+
+/// Penerusan satu surat ke satu pegawai beserta instruksinya.
+model Disposisi {
+  id              String   @id @default(cuid())
+  suratId         String
+  surat           Surat    @relation(fields: [suratId], references: [id], onDelete: Restrict)
+  kepadaPegawaiId String
+  kepada          Pegawai  @relation(fields: [kepadaPegawaiId], references: [id], onDelete: Restrict)
+  dicatatOleh     String
+  pencatat        User     @relation(fields: [dicatatOleh], references: [id], onDelete: Restrict)
+  instruksi       String
+  tanggal         DateTime @db.Date
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([suratId])
+  @@index([kepadaPegawaiId])
 }

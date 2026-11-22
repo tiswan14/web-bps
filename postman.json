@@ -1,0 +1,114 @@
+{
+  "info": {
+    "name": "KECAP MAJA - API Pegawai",
+    "description": "REST API CRUD Data Pegawai BPS Kabupaten Pangandaran",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "pegawaiId",
+      "value": ""
+    },
+    {
+      "key": "sessionToken",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "GET - Semua Pegawai",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/pegawai"
+      }
+    },
+    {
+      "name": "GET - Pagination dan Pencarian",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/pegawai?page=1&limit=10&search=Aditya"
+      }
+    },
+    {
+      "name": "GET - Filter Pegawai Aktif",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/pegawai?aktif=true"
+      }
+    },
+    {
+      "name": "GET - Detail Pegawai",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/pegawai/{{pegawaiId}}"
+      }
+    },
+    {
+      "name": "POST - Tambah Pegawai",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nama\": \"Pegawai Testing API\",\n  \"nip\": \"199811222026011001\",\n  \"email\": \"testing.api@example.com\",\n  \"nipBps\": \"999999991\",\n  \"golonganAkhir\": \"III/a\",\n  \"pangkat\": \"Penata Muda\",\n  \"jabatan\": \"Pegawai Testing\"\n}"
+        },
+        "url": "{{baseUrl}}/api/pegawai"
+      }
+    },
+    {
+      "name": "PATCH - Update Pegawai",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nama\": \"Pegawai Testing API Updated\",\n  \"jabatan\": \"Pranata Komputer\",\n  \"golonganAkhir\": \"III/b\"\n}"
+        },
+        "url": "{{baseUrl}}/api/pegawai/{{pegawaiId}}"
+      }
+    },
+    {
+      "name": "PATCH - Nonaktifkan Pegawai",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"aktif\": false\n}"
+        },
+        "url": "{{baseUrl}}/api/pegawai/{{pegawaiId}}"
+      }
+    },
+    {
+      "name": "DELETE - Hapus Pegawai",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": "{{baseUrl}}/api/pegawai/{{pegawaiId}}"
+      }
+    }
+  ]
+}
