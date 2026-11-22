@@ -21,7 +21,6 @@ type AppSidebarProps = {
 export function AppSidebar({ permissions }: AppSidebarProps) {
   const pathname = usePathname()
   const [openGroups, setOpenGroups] = useState<string[]>([])
-
   function toggleGroup(title: string) {
     setOpenGroups((current) =>
       current.includes(title)
@@ -41,14 +40,17 @@ export function AppSidebar({ permissions }: AppSidebarProps) {
     }))
     .filter((group) => group.children.length > 0)
 
+
+
   return (
     <Sidebar
-      collapsible="none"
-      variant="inset"
+      collapsible='none'
+      variant='inset'
+      className='h-full overflow-hidden'
     >
       <SidebarBrand />
 
-      <SidebarContent>
+      <SidebarContent className='min-h-0 flex-1 overflow-y-auto'>
         <SidebarMainMenu />
 
         {filteredGroups.map((group) => (

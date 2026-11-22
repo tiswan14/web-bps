@@ -20,16 +20,16 @@ export default async function DashboardLayout({
   const permissions = rolePermissions[user.role]
 
   return (
-    <SidebarProvider>
+    <SidebarProvider className='h-svh overflow-hidden'>
       <AppSidebar permissions={permissions} />
 
-      <SidebarInset>
+      <SidebarInset className='min-h-0 overflow-y-auto md:m-0 md:rounded-none md:shadow-none'>
         <AppHeader
           userName={userName}
           userRole={user.role}
         />
 
-        <main className="flex min-h-0 flex-1 flex-col gap-6 bg-background p-4 md:p-6">
+        <main className='flex min-h-0 flex-1 flex-col gap-6 bg-background px-2 py-3 md:px-3 md:py-4'>
           {children}
         </main>
       </SidebarInset>

@@ -7,7 +7,9 @@ datasource db {
   provider = "postgresql"
 }
 
-// USER
+// ==========================================
+// USER & ROLE
+// ==========================================
 
 enum Role {
   ADMIN
@@ -17,64 +19,138 @@ enum Role {
   PPK
 }
 
-/// Tim kerja di BPS, misalnya Sosial, Neraca, Produksi, Distribusi, IPDS.
+// ==========================================
+// MASTER FUNGSI
+// ==========================================
+
+// Tim kerja di BPS, misalnya Sosial, Neraca,
+// Produksi, Distribusi, IPDS.
 model Fungsi {
-  id        String    @id @default(cuid())
-  nama      String    @unique
-  pegawai   Pegawai[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id      String    @id @default(cuid())
+  nama    String    @unique
+  pegawai Pegawai[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
-/// Data kepegawaian organik. Tersambung ke akun login lewat userId (boleh kosong).
+// ==========================================
+// MASTER PEGAWAI
+// ==========================================
+
+// Data kepegawaian organik.
+// Terhubung ke akun login melalui userId (opsional).
 model Pegawai {
-  id                String      @id @default(cuid())
-  nama              String
-  /// 18 digit, disimpan tanpa spasi.
-  nip               String      @unique
-  email             String?
-  /// NIP lama (9 digit).
-  nipBps            String?
-  golonganAkhir     String?
-  pangkat           String?
-  jabatan           String?
-  aktif             Boolean     @default(true)
-  fungsiId          String?
-  fungsi            Fungsi?     @relation(fields: [fungsiId], references: [id], onDelete: SetNull)
-  userId            String?     @unique
-  user              User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
-  disposisiDiterima Disposisi[]
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
+  id   String @id @default(cuid())
+  nama String
+
+  // NIP 18 digit, disimpan tanpa spasi.
+  nip String @unique
+
+  email String?
+
+  // NIP lama (9 digit).
+  nipBps String?
+
+  golonganAkhir String?
+  pangkat       String?
+  jabatan       String?
+  aktif         Boolean @default(true)
+
+  fungsiId String?
+  fungsi   Fungsi? @relation(fields: [fungsiId], references: [id], onDelete: SetNull)
+
+  userId String? @unique
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  disposisiDiterima  Disposisi[]
+  penugasanAnggarans PenugasanAnggaran[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
-/// Akun login. Login boleh memakai username atau email.
+// ==========================================
+// USER ACCOUNT
+// ==========================================
+
+// Akun login. Login boleh memakai username atau email.
 model User {
-  id               String      @id @default(cuid())
-  username         String      @unique
-  email            String      @unique
-  passwordHash     String
-  role             Role        @default(PEGAWAI)
-  isActive         Boolean     @default(true)
+  id           String @id @default(cuid())
+  username     String @unique
+  email        String @unique
+  passwordHash String
+
+  role     Role    @default(PEGAWAI)
+  isActive Boolean @default(true)
+
   lastLoginAt      DateTime?
-  failedLoginCount Int         @default(0)
+  failedLoginCount Int       @default(0)
   lockedUntil      DateTime?
+
   pegawai          Pegawai?
   suratDicatat     Surat[]
   disposisiDicatat Disposisi[]
-  createdAt        DateTime    @default(now())
-  updatedAt        DateTime    @updatedAt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
-// SURAT
+// ==========================================
+// MASTER PERIODE
+// ==========================================
 
-/// Arah surat: masuk atau keluar.
+// Mengelompokkan seluruh data operasional berdasarkan periode.
+model Periode {
+  tahun Int @id
+
+  penugasanAnggarans PenugasanAnggaran[]
+  surat              Surat[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ==========================================
+// PENUGASAN ANGGARAN
+// ==========================================
+
+enum JenisPenugasanAnggaran {
+  KUASA_PENGGUNA_ANGGARAN
+  PEJABAT_PENANDATANGAN_SURAT_PERINTAH_MEMBAYAR
+  PEJABAT_PEMBUAT_KOMITMEN
+  PEJABAT_PENGADAAN_BARANG_DAN_JASA
+  BENDAHARA_PENGELUARAN
+}
+
+model PenugasanAnggaran {
+  id        String                 @id @default(cuid())
+  pegawaiId String
+  periodeId Int
+  jenis     JenisPenugasanAnggaran
+
+  pegawai Pegawai @relation(fields: [pegawaiId], references: [id], onDelete: Cascade)
+  periode Periode @relation(fields: [periodeId], references: [tahun], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([pegawaiId, jenis, periodeId])
+  @@index([pegawaiId])
+  @@index([periodeId])
+}
+
+// ==========================================
+// SURAT
+// ==========================================
+
+// Arah surat: masuk atau keluar.
 enum JenisSurat {
   MASUK
   KELUAR
 }
 
-/// Tingkat kepentingan surat.
+// Tingkat kepentingan surat.
 enum SifatSurat {
   BIASA
   PENTING
@@ -82,45 +158,69 @@ enum SifatSurat {
   RAHASIA
 }
 
-/// Catatan surat masuk dan keluar yang dicatat oleh operator.
+// Catatan surat masuk dan keluar yang dicatat operator.
 model Surat {
-  id          String      @id @default(cuid())
-  jenis       JenisSurat
-  /// Tidak dibuat unik: di data acuan ada nomor yang hanya "1".
-  nomor       String
-  tanggal     DateTime    @db.Date
-  /// Asal surat kalau masuk, tujuan surat kalau keluar.
-  asalTujuan  String
-  perihal     String
-  sifat       SifatSurat  @default(BIASA)
-  /// Arti dan pilihan isinya belum dikonfirmasi mentor.
+  id    String     @id @default(cuid())
+  jenis JenisSurat
+
+  // Tidak dibuat unik karena nomor surat bisa berulang.
+  nomor String
+
+  tanggal DateTime @db.Date
+
+  // Asal surat kalau masuk, tujuan surat kalau keluar.
+  asalTujuan String
+  perihal    String
+
+  sifat SifatSurat @default(BIASA)
+
+  // Arti dan pilihan isinya belum dikonfirmasi mentor.
   pengantaran String?
-  /// Arti dan pilihan isinya belum dikonfirmasi mentor.
   status      String?
+
   dicatatOleh String
-  pencatat    User        @relation(fields: [dicatatOleh], references: [id], onDelete: Restrict)
-  disposisi   Disposisi[]
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  pencatat    User   @relation(fields: [dicatatOleh], references: [id], onDelete: Restrict)
+
+  // Periode pencatatan surat.
+  periodeId Int
+  periode   Periode @relation(fields: [periodeId], references: [tahun], onDelete: Restrict)
+
+  disposisi Disposisi[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([tanggal])
   @@index([nomor])
+  @@index([periodeId])
+  @@index([jenis, periodeId])
 }
 
-/// Penerusan satu surat ke satu pegawai beserta instruksinya.
+// ==========================================
+// DISPOSISI
+// ==========================================
+
+// Penerusan satu surat ke satu pegawai beserta instruksinya.
+// Periode mengikuti surat induknya.
 model Disposisi {
-  id              String   @id @default(cuid())
-  suratId         String
-  surat           Surat    @relation(fields: [suratId], references: [id], onDelete: Restrict)
+  id String @id @default(cuid())
+
+  suratId String
+  surat   Surat  @relation(fields: [suratId], references: [id], onDelete: Restrict)
+
   kepadaPegawaiId String
-  kepada          Pegawai  @relation(fields: [kepadaPegawaiId], references: [id], onDelete: Restrict)
-  dicatatOleh     String
-  pencatat        User     @relation(fields: [dicatatOleh], references: [id], onDelete: Restrict)
-  instruksi       String
-  tanggal         DateTime @db.Date
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  kepada          Pegawai @relation(fields: [kepadaPegawaiId], references: [id], onDelete: Restrict)
+
+  dicatatOleh String
+  pencatat    User   @relation(fields: [dicatatOleh], references: [id], onDelete: Restrict)
+
+  instruksi String
+  tanggal   DateTime @db.Date
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([suratId])
   @@index([kepadaPegawaiId])
+  @@index([dicatatOleh])
 }

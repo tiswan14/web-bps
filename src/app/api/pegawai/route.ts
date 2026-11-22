@@ -54,8 +54,12 @@ export async function GET(request: NextRequest) {
     const golongan = searchParams.get('golongan')?.trim()
     const jabatan = searchParams.get('jabatan')?.trim()
     const aktifParam = searchParams.get('aktif')
+    const kategori = searchParams.get('kategori')
 
     const where = {
+      ...(kategori === 'pengelola-anggaran'
+        ? { fungsiId: { not: null } }
+        : {}),
       ...(search
         ? {
           OR: [
