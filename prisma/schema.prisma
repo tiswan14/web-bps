@@ -90,7 +90,8 @@ model User {
 
   pegawai          Pegawai?
   suratDicatat     Surat[]
-  disposisiDicatat Disposisi[]
+  disposisiDicatat   Disposisi[]
+  bookingAulaDicatat BookingAula[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -222,5 +223,35 @@ model Disposisi {
 
   @@index([suratId])
   @@index([kepadaPegawaiId])
+  @@index([dicatatOleh])
+}
+
+
+// ==========================================
+// BOOK AULA (PEMESANAN RUANG RAPAT)
+// ==========================================
+
+model BookingAula {
+  id String @id @default(cuid())
+
+  ruangId   String
+  namaRuang String
+
+  tanggal    DateTime @db.Date
+  jamMulai   String
+  jamSelesai String
+
+  namaPeminjam  String
+  jumlahPeserta Int
+  kegiatan      String
+
+  dicatatOleh String
+  pencatat    User   @relation(fields: [dicatatOleh], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tanggal])
+  @@index([ruangId, tanggal])
   @@index([dicatatOleh])
 }
