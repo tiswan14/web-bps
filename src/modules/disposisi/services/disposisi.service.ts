@@ -120,7 +120,7 @@ export async function getDisposisi(params: GetDisposisiParams) {
         prisma.disposisi.findMany({
             where,
             select: disposisiSelect,
-            orderBy: { tanggal: 'desc' },
+            orderBy: [{ tanggal: 'desc' }, { updatedAt: 'desc' }],
             skip: (page - 1) * limit,
             take: limit,
         }),
