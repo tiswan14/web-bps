@@ -1,7 +1,6 @@
+"use client";
 
-'use client'
-
-import { useActionState, useState } from 'react'
+import { useActionState, useState } from "react";
 import {
   Eye,
   EyeOff,
@@ -9,35 +8,35 @@ import {
   LoaderCircle,
   LogIn,
   UserRound,
-} from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { loginAction, type LoginState } from '@/lib/auth-actions'
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { loginAction, type LoginState } from "@/lib/auth-actions";
 
 const initialState: LoginState = {
   error: null,
-}
+};
 
 const inputClassName =
-  'h-12 w-full rounded-lg border border-input bg-background py-3 pl-11 pr-11 text-base text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/20'
+  "h-12 w-full rounded-lg border border-input bg-background py-3 pl-11 pr-11 text-base text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/20";
 
 export function LoginForm() {
   const [state, formAction, isPending] = useActionState(
     loginAction,
     initialState,
-  )
-  const [showPassword, setShowPassword] = useState(false)
+  );
+  const [showPassword, setShowPassword] = useState(false);
 
   return (
     <form action={formAction} className="space-y-5">
       <div className="space-y-2">
         <label
           htmlFor="identifier"
-          className="text-base font-medium text-foreground"
+          className="text-ba se font-medium text-muted-foreground"
         >
           Username atau email
         </label>
 
-        <div className="relative">
+        <div className="relative mt-2">
           <UserRound
             size={20}
             strokeWidth={1.8}
@@ -61,12 +60,12 @@ export function LoginForm() {
       <div className="space-y-2">
         <label
           htmlFor="password"
-          className="text-base font-medium text-foreground"
+          className="text-base font-medium text-muted-foreground"
         >
           Password
         </label>
 
-        <div className="relative">
+        <div className="relative mt-2">
           <KeyRound
             size={20}
             strokeWidth={1.8}
@@ -77,7 +76,7 @@ export function LoginForm() {
           <input
             id="password"
             name="password"
-            type={showPassword ? 'text' : 'password'}
+            type={showPassword ? "text" : "password"}
             autoComplete="current-password"
             placeholder="Masukkan password"
             required
@@ -88,7 +87,9 @@ export function LoginForm() {
           <button
             type="button"
             onClick={() => setShowPassword((previous) => !previous)}
-            aria-label={showPassword ? 'Sembunyikan password' : 'Lihat password'}
+            aria-label={
+              showPassword ? "Sembunyikan password" : "Lihat password"
+            }
             className="absolute right-3.5 top-1/2 -translate-y-1/2 cursor-pointer rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {showPassword ? (
@@ -127,5 +128,5 @@ export function LoginForm() {
         )}
       </Button>
     </form>
-  )
+  );
 }
