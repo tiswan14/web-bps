@@ -12,7 +12,7 @@ export default async function DashboardPage() {
     <section className="space-y-2">
       <div>
         <h2 className="text-2xl font-semibold tracking-tight text-foreground">
-          Selamat Datang
+          Selamat siang
         </h2>
         <p className="text-sm text-muted-foreground">
           Halo, {user.pegawai?.nama ?? user.username}. Selamat bekerja.
