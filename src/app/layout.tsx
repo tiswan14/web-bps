@@ -1,9 +1,15 @@
 import type { Metadata } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
+import { Geist, Geist_Mono, Poppins } from "next/font/google";
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { AuthToast } from '@/components/auth-toast'
 import './globals.css'
+
+const poppins = Poppins({
+  variable: "--font-poppins",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+});
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -15,6 +21,8 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
 })
 
+
+
 export const metadata: Metadata = {
   title: 'Web BPS Kab. Pangandaran',
   description: 'Sistem Administrasi Digital BPS Kabupaten Pangandaran',
@@ -22,10 +30,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<'/'>) {
   return (
-    <html
-      lang="id"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
+    <html lang="id" className={`${poppins.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col">
         <TooltipProvider>
           {children}
@@ -34,5 +39,5 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
         </TooltipProvider>
       </body>
     </html>
-  )
+  );
 }

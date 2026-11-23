@@ -1,5 +1,5 @@
-import { UnderDevelopment } from '@/components/shared/under-development'
+import { UnderDevelopment } from "@/components/shared/under-development";
 
 export default function SigapSpjPage() {
-  return <UnderDevelopment title="Sigap SPJ" />
+  return <UnderDevelopment title="update" />;
 }
