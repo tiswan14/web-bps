@@ -35,6 +35,7 @@ export default function Page() {
     loading: loadingPegawai,
     error: errorPegawai,
     pagination,
+    refresh: refreshPegawai,
   } = usePegawai('organik')
 
   const {
@@ -141,8 +142,7 @@ export default function Page() {
         }
         actions={
           isOrganik ? (
-            <PegawaiDialog />
-          ) : (
+            <PegawaiDialog onSuccess={refreshPegawai} />) : (
             <PenugasanDialog />
           )
         }

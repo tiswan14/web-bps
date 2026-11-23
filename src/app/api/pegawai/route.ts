@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
 import { hasPermission } from '@/lib/auth/permissions'
+import { createPegawaiSchema } from '@/modules/pegawai/validations/pegawai.schema'
 
 async function authorize() {
   const user = await getCurrentUser()
@@ -131,6 +132,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
+
 export async function POST(request: NextRequest) {
   try {
     const auth = await authorize()
@@ -138,66 +140,34 @@ export async function POST(request: NextRequest) {
     if (!auth.authorized) return auth.response
 
     const body: unknown = await request.json()
+    const validation = createPegawaiSchema.safeParse(body)
 
-    if (!body || typeof body !== 'object' || Array.isArray(body)) {
-      return NextResponse.json(
-        { success: false, message: 'Format request tidak valid' },
-        { status: 400 },
-      )
-    }
-
-    const payload = body as Record<string, unknown>
-
-    const nama = typeof payload.nama === 'string' ? payload.nama.trim() : ''
-    const nip = typeof payload.nip === 'string' ? payload.nip.trim() : ''
-
-    const email =
-      typeof payload.email === 'string' ? payload.email.trim() || null : null
-
-    const nipBps =
-      typeof payload.nipBps === 'string'
-        ? payload.nipBps.trim() || null
-        : null
-
-    const golonganAkhir =
-      typeof payload.golonganAkhir === 'string'
-        ? payload.golonganAkhir.trim() || null
-        : null
-
-    const pangkat =
-      typeof payload.pangkat === 'string'
-        ? payload.pangkat.trim() || null
-        : null
-
-    const jabatan =
-      typeof payload.jabatan === 'string'
-        ? payload.jabatan.trim() || null
-        : null
-
-    const fungsiId =
-      typeof payload.fungsiId === 'string'
-        ? payload.fungsiId.trim() || null
-        : null
-
-    if (!nama || !nip) {
+    if (!validation.success) {
       return NextResponse.json(
         {
           success: false,
-          message: 'Nama dan NIP wajib diisi',
+          message: 'Validasi data gagal',
+          errors: validation.error.flatten().fieldErrors,
         },
         { status: 400 },
       )
     }
 
+    const payload = validation.data
+
     const existingPegawai = await prisma.pegawai.findFirst({
       where: {
         OR: [
-          { nip },
-          ...(email ? [{ email }] : []),
-          ...(nipBps ? [{ nipBps }] : []),
+          { nip: payload.nip },
+          ...(payload.email
+            ? [{ email: payload.email }]
+            : []),
+          ...(payload.nipBps
+            ? [{ nipBps: payload.nipBps }]
+            : []),
         ],
       },
-      select: { nip: true, email: true, nipBps: true },
+      select: { id: true },
     })
 
     if (existingPegawai) {
@@ -210,9 +180,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (fungsiId) {
+    if (payload.fungsiId) {
       const fungsi = await prisma.fungsi.findUnique({
-        where: { id: fungsiId },
+        where: { id: payload.fungsiId },
         select: { id: true },
       })
 
@@ -226,14 +196,8 @@ export async function POST(request: NextRequest) {
 
     const data = await prisma.pegawai.create({
       data: {
-        nama,
-        nip,
-        email,
-        nipBps,
-        golonganAkhir,
-        pangkat,
-        jabatan,
-        fungsiId,
+        ...payload,
+        email: payload.email || null,
       },
       select: {
         id: true,
@@ -273,3 +237,4 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+

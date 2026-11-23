@@ -1,18 +1,14 @@
 
 import { apiClient } from '@/lib/api/client'
 import type { Pegawai, PegawaiResponse } from '../types/pegawai.type'
+import type {
+  CreatePegawaiInput,
+  UpdatePegawaiInput,
+} from '../validations/pegawai.schema'
 
 export type PegawaiKategori = 'organik' | 'pengelola-anggaran'
 
-export type PegawaiInput = {
-  nama: string
-  nip: string
-  email: string
-  nipBps: string
-  golonganAkhir: string
-  pangkat: string
-  jabatan: string
-}
+export type PegawaiInput = CreatePegawaiInput
 
 type PegawaiMutationResponse = {
   success: boolean
@@ -44,7 +40,7 @@ export async function createPegawai(
 
 export async function updatePegawai(
   id: string,
-  payload: Partial<PegawaiInput>,
+  payload: UpdatePegawaiInput,
 ): Promise<PegawaiMutationResponse> {
   return apiClient<PegawaiMutationResponse>(`/api/pegawai/${id}`, {
     method: 'PATCH',

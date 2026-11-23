@@ -37,7 +37,10 @@ export function usePegawai(kategori: PegawaiKategori) {
 
     getPegawai(kategori)
       .then((result) => {
-        if (active) setData(result)
+        if (active) {
+          setData(result)
+          setError(null)
+        }
       })
       .catch((error: unknown) => {
         if (active) {
@@ -49,7 +52,9 @@ export function usePegawai(kategori: PegawaiKategori) {
         }
       })
       .finally(() => {
-        if (active) setLoading(false)
+        if (active) {
+          setLoading(false)
+        }
       })
 
     return () => {
