@@ -307,14 +307,22 @@ export async function DELETE(
       )
     }
 
-    await prisma.pegawai.delete({
+    const updated = await prisma.pegawai.update({
       where: { id },
+      data: {
+        aktif: false,
+      },
+      select: {
+        id: true,
+        nama: true,
+        aktif: true,
+      },
     })
 
     return NextResponse.json({
       success: true,
-      message: 'Pegawai berhasil dihapus',
-      data: existing,
+      message: 'Pegawai berhasil dinonaktifkan',
+      data: updated,
     })
   } catch (error) {
     console.error('[DELETE /api/pegawai/:id]', error)

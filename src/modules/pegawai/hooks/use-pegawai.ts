@@ -1,6 +1,7 @@
+
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 import {
   getPegawai,
@@ -13,26 +14,47 @@ export function usePegawai(kategori: PegawaiKategori) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    async function fetchPegawai() {
-      try {
-        setLoading(true)
-        setError(null)
+  const fetchPegawai = useCallback(async () => {
+    try {
+      setLoading(true)
+      setError(null)
 
-        const result = await getPegawai(kategori)
-        setData(result)
-      } catch (error) {
-        setError(
-          error instanceof Error
-            ? error.message
-            : 'Gagal mengambil data pegawai',
-        )
-      } finally {
-        setLoading(false)
-      }
+      const result = await getPegawai(kategori)
+      setData(result)
+    } catch (error) {
+      setError(
+        error instanceof Error
+          ? error.message
+          : 'Gagal mengambil data pegawai',
+      )
+    } finally {
+      setLoading(false)
     }
+  }, [kategori])
 
-    fetchPegawai()
+  useEffect(() => {
+    let active = true
+
+    getPegawai(kategori)
+      .then((result) => {
+        if (active) setData(result)
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setError(
+            error instanceof Error
+              ? error.message
+              : 'Gagal mengambil data pegawai',
+          )
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+
+    return () => {
+      active = false
+    }
   }, [kategori])
 
   return {
@@ -40,5 +62,6 @@ export function usePegawai(kategori: PegawaiKategori) {
     pagination: data?.pagination ?? null,
     loading,
     error,
+    refresh: fetchPegawai,
   }
 }

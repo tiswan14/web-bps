@@ -1,9 +1,8 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Building2, Plus, Search, Wallet } from 'lucide-react'
+import { Building2, Search, Wallet } from 'lucide-react'
 
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { PageContainer } from '@/components/shared/page-container'
 import { PageHeader } from '@/components/shared/page-header'
@@ -16,6 +15,8 @@ import { PenugasanAnggaranTable } from '@/modules/penugasan-anggaran/components/
 import { usePenugasanAnggaran } from '@/modules/penugasan-anggaran/hooks/use-penugasan-anggaran'
 
 import type { PegawaiKategori } from '@/modules/pegawai/services/pegawai.service'
+import { PegawaiDialog } from '@/components/pegawai/pegawai-dialog'
+import { PenugasanDialog } from '@/components/pegawai/penugasan-dialog'
 
 const jenisPenugasanLabel = {
   KUASA_PENGGUNA_ANGGARAN: 'Kuasa Pengguna Anggaran',
@@ -100,8 +101,8 @@ export default function Page() {
               setSearch('')
             }}
             className={`flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-md px-3 py-2 text-xs font-medium transition-all ${isOrganik
-                ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
+              ? 'bg-background text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground'
               }`}
           >
             <Building2 className='size-3.5' />
@@ -115,8 +116,8 @@ export default function Page() {
               setSearch('')
             }}
             className={`flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-md px-3 py-2 text-xs font-medium transition-all ${!isOrganik
-                ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
+              ? 'bg-background text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground'
               }`}
           >
             <Wallet className='size-3.5' />
@@ -139,10 +140,11 @@ export default function Page() {
           </div>
         }
         actions={
-          <Button className='cursor-pointer'>
-            <Plus className='size-4' />
-            {isOrganik ? 'Tambah Pegawai' : 'Tambah Penugasan'}
-          </Button>
+          isOrganik ? (
+            <PegawaiDialog />
+          ) : (
+            <PenugasanDialog />
+          )
         }
       />
 
