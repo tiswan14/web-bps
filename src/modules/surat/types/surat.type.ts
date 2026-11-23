@@ -1,53 +1,71 @@
+export type JenisSurat = 'MASUK' | 'KELUAR'
 
+export type SifatSurat = 'BIASA' | 'PENTING'
 
-import type {
-    JenisSurat,
-    SifatSurat,
-    Prisma,
-} from '@/generated/prisma/client'
-
-export interface SuratCreateInput {
+export interface SuratItem {
+    id: string
     jenis: JenisSurat
     nomor: string
-    tanggal: Date
+    tanggal: string
     asalTujuan: string
     perihal: string
-    sifat?: SifatSurat
-    pengantaran?: string | null
-    status?: string | null
+    sifat: SifatSurat
+    pengantaran: string | null
+    status: string | null
+    periodeId?: number
+    penerimaDisposisi?: string | null
+    dicatatOleh: string
+}
+
+export interface CreateSuratInput {
+    jenis: JenisSurat
+    nomor: string
+    tanggal: string
+    asalTujuan: string
+    perihal: string
+    sifat: SifatSurat
+    pengantaran: string | null
+    status: string | null
     periodeId: number
 }
 
-export interface SuratUpdateInput {
-    jenis?: JenisSurat
-    nomor?: string
-    tanggal?: Date
-    asalTujuan?: string
-    perihal?: string
-    sifat?: SifatSurat
-    pengantaran?: string | null
-    status?: string | null
-    periodeId?: number
+export type UpdateSuratInput = Partial<CreateSuratInput>
+
+export interface SuratApiRecord {
+    id: string
+    jenis: JenisSurat
+    nomor: string
+    tanggal: string
+    asalTujuan: string
+    perihal: string
+    sifat: SifatSurat
+    pengantaran: string | null
+    status: string | null
+    dicatatOleh: string
+    periodeId: number
+    pencatat?: {
+        id: string
+        username: string
+        email: string
+    } | null
 }
 
-export interface SuratQueryParams {
-    page: number
-    limit: number
-    search?: string
-    jenis?: JenisSurat
-    sifat?: SifatSurat
-    tahun?: number
-}
-
-export type SuratWithRelations = Prisma.SuratGetPayload<{
-    include: {
-        pencatat: {
-            select: {
-                id: true
-                username: true
-                email: true
-            }
+export interface SuratListResponse {
+    success: boolean
+    message: string
+    data: {
+        data: SuratApiRecord[]
+        meta: {
+            page: number
+            limit: number
+            total: number
+            totalPages: number
         }
-        periode: true
     }
-}>
+}
+
+export interface SuratMutationResponse {
+    success: boolean
+    message: string
+    data: SuratApiRecord
+}

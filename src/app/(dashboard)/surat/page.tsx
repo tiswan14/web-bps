@@ -7,61 +7,102 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { PageContainer } from '@/components/shared/page-container'
 
-import { SuratTable } from '@/modules/surat/components/surat-table'
-import { DisposisiTable } from '@/modules/surat/components/disposisi-table'
+// Surat
 import { CatatSuratModal } from '@/modules/surat/components/catat-surat-modal'
 import {
   DetailSuratModal,
   HapusSuratModal,
 } from '@/modules/surat/components/surat-action-modals'
+import { SuratTable } from '@/modules/surat/components/surat-table'
+import { SuratTabs } from '@/modules/surat/components/surat-tabs'
+import { TAB_CONFIG } from '@/modules/surat/constants/surat-tabs'
+import { useSurat } from '@/modules/surat/hooks/use-surat'
+import { useSuratActions } from '@/modules/surat/hooks/use-surat-actions'
+import { useSuratFilters } from '@/modules/surat/hooks/use-surat-filters'
+
+// Disposisi (belum dipindah)
+import { DisposisiTable } from '@/modules/surat/components/disposisi-table'
 import {
   DetailDisposisiModal,
   FormDisposisiModal,
   HapusDisposisiModal,
 } from '@/modules/surat/components/disposisi-modals'
 import {
-  deleteSuratById,
-  fetchSuratList,
-  patchUpdateSurat,
-  postCreateSurat,
-} from '@/modules/surat/services/surat-api.service'
-import {
   deleteDisposisiById,
   fetchDisposisiList,
   patchUpdateDisposisi,
   postCreateDisposisi,
 } from '@/modules/disposisi/services/disposisi-api.service'
+
 import type {
   CreateDisposisiInput,
-  CreateSuratInput,
   DisposisiItem,
-  JenisSurat,
   SuratItem,
 } from '@/modules/surat/types'
 
-type TabSurat = 'surat-masuk' | 'surat-keluar' | 'disposisi'
-
 export default function Page() {
-  const [activeTab, setActiveTab] = useState<TabSurat>('surat-masuk')
-  const [search, setSearch] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(10)
+  // ---------------------------------------------------------------------------
+  // Filters (tab, search, pagination)
+  // ---------------------------------------------------------------------------
+  const filters = useSuratFilters()
+  const {
+    activeTab,
+    setActiveTab,
+    search,
+    debouncedSearch,
+    page,
+    setPage,
+    pageSize,
+  } = filters
 
-  const [suratList, setSuratList] = useState<SuratItem[]>([])
-  const [totalSurat, setTotalSurat] = useState(0)
-  const [loadingSurat, setLoadingSurat] = useState(true)
-  const [errorSurat, setErrorSurat] = useState<string | null>(null)
+  const config = TAB_CONFIG[activeTab]
+  const isDisposisiTab = activeTab === 'disposisi'
+  const currentJenis = config.jenis
 
-  const [disposisiList, setDisposisiList] = useState<DisposisiItem[]>([])
-  const [totalDisposisi, setTotalDisposisi] = useState(0)
-  const [loadingDisposisi, setLoadingDisposisi] = useState(false)
-  const [errorDisposisi, setErrorDisposisi] = useState<string | null>(null)
+  // ---------------------------------------------------------------------------
+  // Surat: data + actions
+  // ---------------------------------------------------------------------------
+  const {
+    data: suratList,
+    pagination: suratPagination,
+    loading: loadingSurat,
+    error: errorSurat,
+    refresh: refreshSurat,
+    createSurat,
+    updateSurat,
+    deleteSurat,
+  } = useSurat({
+    page,
+    limit: pageSize,
+    search: debouncedSearch,
+    jenis: currentJenis,
+  })
 
+  const suratActions = useSuratActions({
+    activeTab,
+    setActiveTab,
+    page,
+    setPage,
+    suratList,
+    refreshSurat,
+    createSurat,
+    updateSurat,
+    deleteSurat,
+  })
+
+  // Surat modal state
   const [openSuratModal, setOpenSuratModal] = useState(false)
   const [editingSurat, setEditingSurat] = useState<SuratItem | null>(null)
   const [detailSurat, setDetailSurat] = useState<SuratItem | null>(null)
   const [deletingSurat, setDeletingSurat] = useState<SuratItem | null>(null)
+
+  // ---------------------------------------------------------------------------
+  // Disposisi: data + modal state
+  // ---------------------------------------------------------------------------
+  const [disposisiList, setDisposisiList] = useState<DisposisiItem[]>([])
+  const [totalDisposisi, setTotalDisposisi] = useState(0)
+  const [loadingDisposisi, setLoadingDisposisi] = useState(false)
+  const [errorDisposisi, setErrorDisposisi] = useState<string | null>(null)
 
   const [openDisposisiModal, setOpenDisposisiModal] = useState(false)
   const [editingDisposisi, setEditingDisposisi] =
@@ -70,41 +111,6 @@ export default function Page() {
     useState<DisposisiItem | null>(null)
   const [deletingDisposisi, setDeletingDisposisi] =
     useState<DisposisiItem | null>(null)
-
-  const isDisposisiTab = activeTab === 'disposisi'
-  const currentJenis: JenisSurat =
-    activeTab === 'surat-keluar' ? 'KELUAR' : 'MASUK'
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(search)
-    }, 350)
-
-    return () => clearTimeout(timer)
-  }, [search])
-
-  const loadSurat = useCallback(async () => {
-    try {
-      setLoadingSurat(true)
-      setErrorSurat(null)
-
-      const result = await fetchSuratList({
-        page,
-        limit: pageSize,
-        search: debouncedSearch,
-        jenis: currentJenis,
-      })
-
-      setSuratList(result.items)
-      setTotalSurat(result.meta.total)
-    } catch (error) {
-      setErrorSurat(
-        error instanceof Error ? error.message : 'Gagal memuat data surat',
-      )
-    } finally {
-      setLoadingSurat(false)
-    }
-  }, [page, pageSize, debouncedSearch, currentJenis])
 
   const loadDisposisi = useCallback(async () => {
     try {
@@ -133,49 +139,41 @@ export default function Page() {
   useEffect(() => {
     if (isDisposisiTab) {
       void loadDisposisi()
-    } else {
-      void loadSurat()
     }
-  }, [isDisposisiTab, loadDisposisi, loadSurat])
+  }, [isDisposisiTab, loadDisposisi])
 
-  function handleTabChange(tab: TabSurat) {
-    setActiveTab(tab)
-    setSearch('')
-    setDebouncedSearch('')
-    setPage(1)
-  }
-
-  async function handleSimpanSurat(
-    suratData: CreateSuratInput,
-    editId?: string,
-  ) {
-    if (editId) {
-      await patchUpdateSurat(editId, suratData)
-      await loadSurat()
+  // ---------------------------------------------------------------------------
+  // Handlers
+  // ---------------------------------------------------------------------------
+  function handleAdd() {
+    if (isDisposisiTab) {
+      setEditingDisposisi(null)
+      setOpenDisposisiModal(true)
       return
     }
 
-    await postCreateSurat(suratData)
-    const targetTab: TabSurat =
-      suratData.jenis === 'KELUAR' ? 'surat-keluar' : 'surat-masuk'
-
-    if (activeTab !== targetTab) {
-      setActiveTab(targetTab)
-      setPage(1)
-    } else if (page !== 1) {
-      setPage(1)
-    } else {
-      await loadSurat()
-    }
+    setEditingSurat(null)
+    setOpenSuratModal(true)
   }
 
-  async function handleHapusSurat(id: string) {
-    await deleteSuratById(id)
-    if (suratList.length === 1 && page > 1) {
-      setPage((prev) => prev - 1)
-    } else {
-      await loadSurat()
-    }
+  function handleEditSurat(surat: SuratItem) {
+    setEditingSurat(surat)
+    setOpenSuratModal(true)
+  }
+
+  function handleCloseSuratModal() {
+    setOpenSuratModal(false)
+    setEditingSurat(null)
+  }
+
+  function handleEditDisposisi(item: DisposisiItem) {
+    setEditingDisposisi(item)
+    setOpenDisposisiModal(true)
+  }
+
+  function handleCloseDisposisiModal() {
+    setOpenDisposisiModal(false)
+    setEditingDisposisi(null)
   }
 
   async function handleSimpanDisposisi(
@@ -189,6 +187,7 @@ export default function Page() {
     }
 
     await postCreateDisposisi(data)
+
     if (page !== 1) {
       setPage(1)
     } else {
@@ -198,6 +197,7 @@ export default function Page() {
 
   async function handleHapusDisposisi(id: string) {
     await deleteDisposisiById(id)
+
     if (disposisiList.length === 1 && page > 1) {
       setPage((prev) => prev - 1)
     } else {
@@ -205,135 +205,81 @@ export default function Page() {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
   return (
     <PageContainer>
+      {/* Page header */}
       <div className='space-y-1'>
         <div className='flex items-center gap-2.5'>
           <Mail className='size-6 text-foreground' />
+
           <h1 className='text-2xl font-bold tracking-tight text-foreground'>
             Surat &amp; Disposisi
           </h1>
         </div>
+
         <p className='text-sm text-muted-foreground'>
           Pencatatan surat masuk/keluar dan penerusan disposisi internal.
         </p>
       </div>
 
-      <div className='flex'>
-        <div className='inline-flex rounded-lg bg-muted p-1'>
-          <button
-            type='button'
-            onClick={() => handleTabChange('surat-masuk')}
-            className={`cursor-pointer rounded-md px-4 py-1.5 text-xs font-medium transition-all ${
-              activeTab === 'surat-masuk'
-                ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            Surat Masuk
-          </button>
-          <button
-            type='button'
-            onClick={() => handleTabChange('surat-keluar')}
-            className={`cursor-pointer rounded-md px-4 py-1.5 text-xs font-medium transition-all ${
-              activeTab === 'surat-keluar'
-                ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            Surat Keluar
-          </button>
-          <button
-            type='button'
-            onClick={() => handleTabChange('disposisi')}
-            className={`cursor-pointer rounded-md px-4 py-1.5 text-xs font-medium transition-all ${
-              activeTab === 'disposisi'
-                ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            Disposisi
-          </button>
-        </div>
-      </div>
+      <SuratTabs activeTab={activeTab} onChange={filters.changeTab} />
 
+      {/* Main content */}
       <div className='space-y-5 rounded-xl border bg-card p-6 shadow-sm'>
         <div className='flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between'>
           <div>
             <h2 className='text-lg font-semibold text-foreground'>
-              {activeTab === 'surat-masuk'
-                ? 'Daftar Surat Masuk'
-                : activeTab === 'surat-keluar'
-                  ? 'Daftar Surat Keluar'
-                  : 'Daftar Disposisi'}
+              {config.title}
             </h2>
+
             <p className='text-xs text-muted-foreground'>
-              {activeTab === 'surat-masuk'
-                ? 'Catat dan kelola surat masuk yang diterima instansi.'
-                : activeTab === 'surat-keluar'
-                  ? 'Catat dan kelola surat keluar yang dikirim atau diantarkan secara fisik.'
-                  : 'Daftar penerusan disposisi surat masuk dan keluar internal.'}
+              {config.description}
             </p>
           </div>
 
           <Button
             type='button'
-            onClick={() => {
-              if (isDisposisiTab) {
-                setEditingDisposisi(null)
-                setOpenDisposisiModal(true)
-              } else {
-                setEditingSurat(null)
-                setOpenSuratModal(true)
-              }
-            }}
+            onClick={handleAdd}
             className='cursor-pointer bg-emerald-600 text-white hover:bg-emerald-700'
           >
             <Plus className='size-4' />
-            {activeTab === 'surat-masuk'
-              ? 'Catat Surat Masuk'
-              : activeTab === 'surat-keluar'
-                ? 'Catat Surat Keluar'
-                : 'Buat Disposisi'}
+            {config.addLabel}
           </Button>
         </div>
 
+        {/* Search */}
         <div className='relative w-full sm:max-w-xs'>
           <Search className='absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground' />
+
           <Input
             value={search}
-            onChange={(e) => {
-              setSearch(e.target.value)
-              setPage(1)
-            }}
-            placeholder={
-              activeTab === 'surat-masuk'
-                ? 'Cari nomor, asal surat, atau perihal...'
-                : activeTab === 'surat-keluar'
-                  ? 'Cari nomor, tujuan surat, atau perihal...'
-                  : 'Cari nomor surat, perihal, atau penerima...'
-            }
+            onChange={(event) => filters.changeSearch(event.target.value)}
+            placeholder={config.searchPlaceholder}
             className='pl-9'
           />
         </div>
 
+        {/* List */}
         {!isDisposisiTab ? (
           errorSurat ? (
             <div className='flex flex-col items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive'>
               <p>{errorSurat}</p>
+
               <Button
                 type='button'
                 size='sm'
                 variant='outline'
-                onClick={() => void loadSurat()}
+                onClick={() => void refreshSurat()}
               >
                 Coba Lagi
               </Button>
             </div>
           ) : loadingSurat ? (
             <div className='py-10 text-center text-sm text-muted-foreground'>
-              Memuat data{' '}
-              {activeTab === 'surat-masuk' ? 'surat masuk' : 'surat keluar'}...
+              {config.loadingLabel}
             </div>
           ) : (
             <SuratTable
@@ -341,23 +287,18 @@ export default function Page() {
               jenis={currentJenis}
               page={page}
               pageSize={pageSize}
-              totalItems={totalSurat}
+              totalItems={suratPagination.total}
               onPageChange={setPage}
-              onPageSizeChange={(size) => {
-                setPageSize(size)
-                setPage(1)
-              }}
-              onDetailSurat={(surat) => setDetailSurat(surat)}
-              onEditSurat={(surat) => {
-                setEditingSurat(surat)
-                setOpenSuratModal(true)
-              }}
-              onDeleteSurat={(surat) => setDeletingSurat(surat)}
+              onPageSizeChange={filters.changePageSize}
+              onDetailSurat={setDetailSurat}
+              onEditSurat={handleEditSurat}
+              onDeleteSurat={setDeletingSurat}
             />
           )
         ) : errorDisposisi ? (
           <div className='flex flex-col items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive'>
             <p>{errorDisposisi}</p>
+
             <Button
               type='button'
               size='sm'
@@ -369,7 +310,7 @@ export default function Page() {
           </div>
         ) : loadingDisposisi ? (
           <div className='py-10 text-center text-sm text-muted-foreground'>
-            Memuat data disposisi...
+            {config.loadingLabel}
           </div>
         ) : (
           <DisposisiTable
@@ -378,63 +319,47 @@ export default function Page() {
             pageSize={pageSize}
             totalItems={totalDisposisi}
             onPageChange={setPage}
-            onPageSizeChange={(size) => {
-              setPageSize(size)
-              setPage(1)
-            }}
-            onDetailDisposisi={(item) => setDetailDisposisi(item)}
-            onEditDisposisi={(item) => {
-              setEditingDisposisi(item)
-              setOpenDisposisiModal(true)
-            }}
-            onDeleteDisposisi={(item) => setDeletingDisposisi(item)}
+            onPageSizeChange={filters.changePageSize}
+            onDetailDisposisi={setDetailDisposisi}
+            onEditDisposisi={handleEditDisposisi}
+            onDeleteDisposisi={setDeletingDisposisi}
           />
         )}
       </div>
 
+      {/* Surat modals */}
       <CatatSuratModal
         open={openSuratModal}
         defaultJenis={currentJenis}
         initialData={editingSurat}
-        onClose={() => {
-          setOpenSuratModal(false)
-          setEditingSurat(null)
-        }}
-        onSubmit={handleSimpanSurat}
+        onClose={handleCloseSuratModal}
+        onSubmit={suratActions.save}
       />
 
       <DetailSuratModal
         surat={detailSurat}
         onClose={() => setDetailSurat(null)}
-        onEdit={(surat) => {
-          setEditingSurat(surat)
-          setOpenSuratModal(true)
-        }}
+        onEdit={handleEditSurat}
       />
 
       <HapusSuratModal
         surat={deletingSurat}
         onClose={() => setDeletingSurat(null)}
-        onConfirm={handleHapusSurat}
+        onConfirm={suratActions.remove}
       />
 
+      {/* Disposisi modals */}
       <FormDisposisiModal
         open={openDisposisiModal}
         initialData={editingDisposisi}
-        onClose={() => {
-          setOpenDisposisiModal(false)
-          setEditingDisposisi(null)
-        }}
+        onClose={handleCloseDisposisiModal}
         onSubmit={handleSimpanDisposisi}
       />
 
       <DetailDisposisiModal
         disposisi={detailDisposisi}
         onClose={() => setDetailDisposisi(null)}
-        onEdit={(item) => {
-          setEditingDisposisi(item)
-          setOpenDisposisiModal(true)
-        }}
+        onEdit={handleEditDisposisi}
       />
 
       <HapusDisposisiModal

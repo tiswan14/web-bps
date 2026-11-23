@@ -14,7 +14,14 @@ export const createSuratSchema = z.object({
     periodeId: z.number().int().min(2000, 'Tahun periode tidak valid'),
 })
 
-export const updateSuratSchema = createSuratSchema.partial()
+export const updateSuratSchema = createSuratSchema
+    .partial()
+    .refine(
+        (data) => Object.keys(data).length > 0,
+        {
+            message: 'Minimal satu field harus diperbarui',
+        },
+    )
 
 export const suratQuerySchema = z.object({
     page: z.coerce.number().int().min(1).default(1),
