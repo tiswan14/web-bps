@@ -23,7 +23,7 @@ export default async function LoginPage() {
           </p>
 
           <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
-            Web BPS
+            cecep bageur alhamdulilah
             <span className="mt-2 block text-primary-foreground/70">
               Kab. Pangandaran
             </span>
