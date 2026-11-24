@@ -91,6 +91,7 @@ model User {
   pegawai          Pegawai?
   suratDicatat     Surat[]
   disposisiDicatat Disposisi[]
+  pengadaanDicatat Pengadaan[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -222,5 +223,64 @@ model Disposisi {
 
   @@index([suratId])
   @@index([kepadaPegawaiId])
+  @@index([dicatatOleh])
+}
+
+
+// ==========================================
+// PENGADAAN (USUL & REALISASI PENGADAAN)
+// ==========================================
+
+enum JenisPengadaan {
+  BARANG
+  JASA
+}
+
+enum StatusPengadaan {
+  DRAFT
+  USULAN
+  PROSES
+  KONTRAK
+  SELESAI
+  BATAL
+}
+
+model Pengadaan {
+  id            String @id @default(cuid())
+  kodePengadaan String @unique
+
+  tahunAnggaran  Int
+  tanggalUsulan  DateTime        @db.Date
+  jenisPengadaan JenisPengadaan  @default(BARANG)
+  namaProduk     String
+  detilPok       String
+  kodePok        String
+  status         StatusPengadaan @default(USULAN)
+
+  // Informasi Keuangan
+  rencana   Int
+  realisasi Int @default(0)
+
+  // Dokumen & Realisasi
+  formPermintaan       String?
+  linkKak              String?
+  jenisDokumen         String?
+  nomorDokumen         String?
+  tanggalDokumen       DateTime? @db.Date
+  namaPenyedia         String?
+  tanggalPembayaran    DateTime? @db.Date
+  nomorBuktiPembayaran String?
+  linkEpurchasing      String?
+  keterangan           String?
+
+  dicatatOleh String
+  pencatat    User   @relation(fields: [dicatatOleh], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tahunAnggaran])
+  @@index([tanggalUsulan])
+  @@index([status])
   @@index([dicatatOleh])
 }
