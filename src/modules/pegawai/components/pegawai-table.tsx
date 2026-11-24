@@ -1,9 +1,10 @@
+
 import { DataTable } from '@/components/shared/data-table/data-table'
 
 import type { Pegawai } from '../types/pegawai.type'
 import { getPegawaiColumns } from './pegawai-columns'
 
-type PegawaiTableProps = {
+interface PegawaiTableProps {
   data: Pegawai[]
   showFungsi?: boolean
 }

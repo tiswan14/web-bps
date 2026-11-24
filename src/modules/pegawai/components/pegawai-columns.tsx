@@ -1,125 +1,118 @@
 
 import type { ColumnDef } from '@tanstack/react-table'
-import { Eye, Pencil, Trash2 } from 'lucide-react'
 
-import { Button } from '@/components/ui/button'
 import type { DataTableFeatures } from '@/components/shared/data-table/data-table.config'
+
 import type { Pegawai } from '../types/pegawai.type'
+
+import { ActionButtons } from '@/components/shared/action-buttons'
+
+interface PegawaiColumnActions {
+  onDetail?: (pegawai: Pegawai) => void
+  onEdit?: (pegawai: Pegawai) => void
+  onDelete?: (pegawai: Pegawai) => void
+}
 
 export function getPegawaiColumns(
   showFungsi: boolean,
+  actions: PegawaiColumnActions = {},
 ): ColumnDef<DataTableFeatures, Pegawai>[] {
   return [
     {
       accessorKey: 'nama',
       header: 'Nama Pegawai',
       meta: {
-        headerClassName: 'w-48 pl-3',
-        cellClassName: 'w-48 min-w-48 px-3',
-      },
-      cell: ({ row }) => {
-        const nama = row.original.nama
-
-        const initials = nama
-          .trim()
-          .split(/\s+/)
-          .slice(0, 2)
-          .map((word) => word[0])
-          .join('')
-          .toUpperCase()
-
-        return (
-          <div className='flex items-center gap-3'>
-            <div className='flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary'>
-              {initials}
-            </div>
-
-            <div className='flex min-w-0 flex-col gap-0.5'>
-              <span className='truncate font-medium'>{nama}</span>
-            </div>
-          </div>
-        )
+        headerClassName: 'w-[220px]',
+        cellClassName: 'w-[220px]',
       },
     },
-    {
-      accessorKey: 'nip',
-      header: 'NIP',
-    },
+
     {
       accessorKey: 'email',
       header: 'Email',
-      cell: ({ row }) => row.original.email ?? '-',
+      cell: ({ row }) => (
+        <span className='truncate'>
+          {row.original.email ?? '-'}
+        </span>
+      ),
+    },
+    
+    {
+      accessorKey: 'nip',
+      header: 'NIP',
+      meta: {
+        headerClassName: 'w-[190px]',
+        cellClassName: 'w-[190px]',
+      },
     },
     {
       accessorKey: 'nipBps',
       header: 'NIP BPS',
-      cell: ({ row }) => row.original.nipBps ?? '-',
-    },
-    {
-      accessorKey: 'golonganAkhir',
-      header: 'Golongan',
-      cell: ({ row }) => row.original.golonganAkhir ?? '-',
-    },
-    {
-      accessorKey: 'pangkat',
-      header: 'Pangkat',
-      cell: ({ row }) => row.original.pangkat ?? '-',
+      meta: {
+        headerClassName: 'w-[130px]',
+        cellClassName: 'w-[130px]',
+      },
     },
     {
       accessorKey: 'jabatan',
       header: 'Jabatan',
-      cell: ({ row }) => row.original.jabatan ?? '-',
+      meta: {
+        headerClassName: 'w-[220px]',
+        cellClassName: 'w-[220px]',
+      },
+    },
+    {
+      accessorKey: 'golonganAkhir',
+      header: 'Golongan',
+      meta: {
+        headerClassName: 'w-[120px]',
+        cellClassName: 'w-[120px]',
+      },
     },
     ...(showFungsi
       ? [
         {
-          accessorKey: 'fungsi',
+          id: 'fungsi',
+          accessorFn: (row) => row.fungsi?.nama ?? '-',
           header: 'Fungsi',
-          cell: ({ row }) => row.original.fungsi?.nama ?? '-',
         } satisfies ColumnDef<DataTableFeatures, Pegawai>,
       ]
       : []),
     {
+      accessorKey: 'aktif',
+      header: 'Status',
+      cell: ({ row }) => {
+        const aktif = row.original.aktif
+
+        return (
+          <span
+            className={
+              aktif
+                ? 'inline-flex rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary'
+                : 'inline-flex rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground'
+            }
+          >
+            {aktif ? 'Aktif' : 'Nonaktif'}
+          </span>
+        )
+      },
+    },
+    {
       id: 'aksi',
       header: 'Aksi',
       meta: {
-        headerClassName: 'pl-8',
+        headerClassName: 'w-px whitespace-nowrap text-center',
+        cellClassName: 'w-px whitespace-nowrap',
       },
       cell: ({ row }) => {
         const pegawai = row.original
 
         return (
-          <div className='flex items-center justify-end gap-1'>
-            <Button
-              variant='ghost'
-              size='icon'
-              className='size-8 cursor-pointer'
-              aria-label={`Detail ${pegawai.nama}`}
-              title='Detail'
-            >
-              <Eye className='size-4' />
-            </Button>
-
-            <Button
-              variant='ghost'
-              size='icon'
-              className='size-8 cursor-pointer'
-              aria-label={`Edit ${pegawai.nama}`}
-              title='Edit'
-            >
-              <Pencil className='size-4' />
-            </Button>
-
-            <Button
-              variant='ghost'
-              size='icon'
-              className='size-8 cursor-pointer text-destructive hover:text-destructive'
-              aria-label={`Hapus ${pegawai.nama}`}
-              title='Hapus'
-            >
-              <Trash2 className='size-4' />
-            </Button>
-          </div>
+          <ActionButtons
+            onDetail={() => actions.onDetail?.(pegawai)}
+            onEdit={() => actions.onEdit?.(pegawai)}
+            onDelete={() => actions.onDelete?.(pegawai)}
+          />
         )
       },
     },

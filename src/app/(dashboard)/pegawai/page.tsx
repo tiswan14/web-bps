@@ -162,7 +162,7 @@ export default function Page() {
 
           {isOrganik ? (
             <PegawaiTable
-              data={filteredPegawai}
+              data={pegawai}
               showFungsi={false}
             />
           ) : (
