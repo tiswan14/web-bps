@@ -397,7 +397,7 @@ export default function SigapSpjPage() {
 
           {/* RESPONSIVE TABLE */}
           <div className="overflow-x-auto rounded-xl border">
-            <table className="w-full min-w-[1050px] border-collapse text-sm">
+            <table className="w-full min-w-262.5 border-collapse text-sm">
               <thead>
                 <tr className="bg-muted/60 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   <th className="px-4 py-4">

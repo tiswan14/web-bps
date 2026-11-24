@@ -24,9 +24,7 @@ export default async function DashboardLayout({
 
         <main className="flex min-h-0 flex-1 flex-col gap-6 bg-background px-2 py-3 md:px-3 md:py-4">
           {children}
-          <div>
-            <h1>halo baroo</h1>
-          </div>
+          
         </main>
       </SidebarInset>
     </SidebarProvider>
