@@ -13,10 +13,17 @@ const poppins = Poppins({
 })
 
 
-
 export const metadata: Metadata = {
   title: 'SIMARLIN | BPS Kabupaten Pangandaran',
   description: 'Sistem Informasi Manajemen Administrasi dan Layanan Informasi BPS Kabupaten Pangandaran',
+  icons: {
+    icon: [
+      {
+        url: '/logo-simarlin2.png',
+        type: 'image/png',
+      },
+    ],
+  },
 }
 
 export default function RootLayout({ children }: LayoutProps<'/'>) {
