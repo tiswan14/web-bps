@@ -65,6 +65,7 @@ model Pegawai {
 
   disposisiDiterima  Disposisi[]
   penugasanAnggarans PenugasanAnggaran[]
+  alokasiPulsa       MonitoringPulsaAlokasi[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -90,7 +91,9 @@ model User {
 
   pegawai          Pegawai?
   suratDicatat     Surat[]
-  disposisiDicatat Disposisi[]
+  disposisiDicatat      Disposisi[]
+  kegiatanPulsaDibuat   MonitoringPulsaKegiatan[] @relation("PulsaDibuatOleh")
+  alokasiPulsaVerif     MonitoringPulsaAlokasi[]  @relation("PulsaDiverifikasiOleh")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -223,4 +226,64 @@ model Disposisi {
   @@index([suratId])
   @@index([kepadaPegawaiId])
   @@index([dicatatOleh])
+}
+
+enum TipePetugasPulsa {
+  ORGANIK
+  MITRA
+}
+enum StatusPersetujuanPulsa {
+  DIAJUKAN
+  DISETUJUI
+  DITOLAK
+}
+model MitraStatistik {
+  id String @id @default(cuid())
+  nama String
+  sobatId String? @unique
+  nik String?
+  noHp String?
+  kecamatan String?
+  aktif Boolean @default(true)
+  alokasiPulsa MonitoringPulsaAlokasi[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([nama])
+}
+model MonitoringPulsaKegiatan {
+  id String @id @default(cuid())
+  bulan Int
+  tahun Int
+  namaKegiatan String
+  nominalPerOrang Int
+  keterangan String?
+  dibuatOlehId String
+  dibuatOleh User @relation("PulsaDibuatOleh", fields: [dibuatOlehId], references: [id], onDelete: Restrict)
+  alokasi MonitoringPulsaAlokasi[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([tahun, bulan])
+}
+model MonitoringPulsaAlokasi {
+  id String @id @default(cuid())
+  kegiatanId String
+  kegiatan MonitoringPulsaKegiatan @relation(fields: [kegiatanId], references: [id], onDelete: Cascade)
+  tipePetugas TipePetugasPulsa
+  pegawaiId String?
+  pegawai Pegawai? @relation(fields: [pegawaiId], references: [id], onDelete: Restrict)
+  mitraId String?
+  mitra MitraStatistik? @relation(fields: [mitraId], references: [id], onDelete: Restrict)
+  nominal Int
+  status StatusPersetujuanPulsa @default(DIAJUKAN)
+  catatanVerifikasi String?
+  diverifikasiOlehId String?
+  diverifikasiOleh User? @relation("PulsaDiverifikasiOleh", fields: [diverifikasiOlehId], references: [id], onDelete: SetNull)
+  diverifikasiAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([kegiatanId, pegawaiId])
+  @@unique([kegiatanId, mitraId])
+  @@index([kegiatanId])
+  @@index([pegawaiId])
+  @@index([mitraId])
 }
