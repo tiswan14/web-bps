@@ -43,12 +43,6 @@ export type NavigationGroup = {
 
 export const mainNavigation: NavigationItem[] = [
   {
-    title: 'Beranda',
-    href: '/',
-    icon: House,
-    disabled: false,
-  },
-  {
     title: 'Dashboard',
     href: '/dashboard',
     icon: LayoutDashboard,
