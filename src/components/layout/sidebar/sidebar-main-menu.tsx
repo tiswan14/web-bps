@@ -1,3 +1,4 @@
+
 'use client'
 
 import Link from 'next/link'
@@ -16,11 +17,13 @@ export function SidebarMainMenu() {
   const pathname = usePathname()
 
   return (
-    <SidebarGroup>
-      <SidebarGroupLabel>Menu Utama</SidebarGroupLabel>
+    <SidebarGroup className='px-3 py-3'>
+      <SidebarGroupLabel className='mb-2 px-2 text-xs font-semibold tracking-wide text-muted-foreground'>
+        Menu Utama
+      </SidebarGroupLabel>
 
       <SidebarGroupContent>
-        <SidebarMenu>
+        <SidebarMenu className='gap-1'>
           {mainNavigation.map((item) => {
             const Icon = item.icon
 
@@ -28,7 +31,7 @@ export function SidebarMainMenu() {
               item.href === '/'
                 ? pathname === '/'
                 : pathname === item.href ||
-                  pathname.startsWith(`${item.href}/`)
+                pathname.startsWith(`${item.href}/`)
 
             return (
               <SidebarMenuItem key={item.href}>
@@ -39,9 +42,9 @@ export function SidebarMainMenu() {
                   render={
                     item.disabled ? undefined : <Link href={item.href} />
                   }
-                  className="cursor-pointer transition-colors hover:bg-accent hover:text-accent-foreground"
+                  className='h-10 cursor-pointer gap-3 rounded-lg px-3 transition-colors hover:bg-accent hover:text-accent-foreground'
                 >
-                  {Icon && <Icon className="size-4" />}
+                  {Icon && <Icon className='size-4 shrink-0' />}
                   <span>{item.title}</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>

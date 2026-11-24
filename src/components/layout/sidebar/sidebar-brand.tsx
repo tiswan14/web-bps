@@ -1,5 +1,5 @@
+import Image from 'next/image'
 import Link from 'next/link'
-import { LayoutDashboard } from 'lucide-react'
 import {
   SidebarHeader,
   SidebarMenu,
@@ -9,28 +9,41 @@ import {
 
 export function SidebarBrand() {
   return (
-    <SidebarHeader>
+    <SidebarHeader className='relative h-16! min-h-16! justify-center border-b border-sidebar-border px-2 py-0'>
       <SidebarMenu>
         <SidebarMenuItem>
           <SidebarMenuButton
-            size="lg"
-            tooltip="Web BPS Kabupaten Pangandaran"
-            render={<Link href="/dashboard" />}
-            className="cursor-pointer transition-colors hover:bg-accent hover:text-accent-foreground"
+            size='lg'
+            tooltip='SIMARLIN - BPS Kab. Pangandaran'
+            render={<Link href='/dashboard' />}
+            className='h-16 cursor-pointer gap-2 px-2 hover:bg-sidebar-accent'
           >
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <LayoutDashboard className="size-5" />
-            </div>
+            <Image
+              src='/logo-simarlin3.png'
+              alt='Logo SIMARLIN'
+              width={112}
+              height={112}
+              priority
+              className='size-14 shrink-0 object-contain'
+            />
 
-            <div className="grid flex-1 text-left text-sm leading-tight">
-              <span className="truncate font-bold">WEB BPS</span>
-              <span className="truncate text-xs text-muted-foreground">
-                Kabupaten Pangandaran
+            <div className='min-w-0 flex-1 text-left leading-none'>
+              <span className='block whitespace-nowrap text-sm font-bold tracking-tight text-foreground'>
+                SIMARLIN
+              </span>
+
+              <span className='mt-0.5 block text-[10px] leading-tight text-muted-foreground'>
+                Sistem Informasi Manajemen
+                Administrasi dan Layanan Informasi
               </span>
             </div>
           </SidebarMenuButton>
         </SidebarMenuItem>
       </SidebarMenu>
+      <div
+        aria-hidden='true'
+        className='pointer-events-none absolute right-0 top-1/2 h-11 w-px -translate-y-1/2 rounded-full bg-border'
+      />
     </SidebarHeader>
   )
 }
