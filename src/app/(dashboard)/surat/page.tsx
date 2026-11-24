@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Mail, Plus, Search } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -27,18 +27,9 @@ import {
   FormDisposisiModal,
   HapusDisposisiModal,
 } from '@/modules/surat/components/disposisi-modals'
-import {
-  deleteDisposisiById,
-  fetchDisposisiList,
-  patchUpdateDisposisi,
-  postCreateDisposisi,
-} from '@/modules/disposisi/services/disposisi-api.service'
+import { useDisposisi } from '@/modules/surat/hooks/use-disposisi'
 
-import type {
-  CreateDisposisiInput,
-  DisposisiItem,
-  SuratItem,
-} from '@/modules/surat/types'
+import type { DisposisiItem, SuratItem } from '@/modules/surat/types'
 
 export default function Page() {
   // ---------------------------------------------------------------------------
@@ -99,10 +90,21 @@ export default function Page() {
   // ---------------------------------------------------------------------------
   // Disposisi: data + modal state
   // ---------------------------------------------------------------------------
-  const [disposisiList, setDisposisiList] = useState<DisposisiItem[]>([])
-  const [totalDisposisi, setTotalDisposisi] = useState(0)
-  const [loadingDisposisi, setLoadingDisposisi] = useState(false)
-  const [errorDisposisi, setErrorDisposisi] = useState<string | null>(null)
+  const {
+    items: disposisiList,
+    total: totalDisposisi,
+    loading: loadingDisposisi,
+    error: errorDisposisi,
+    reload: loadDisposisi,
+    save: handleSimpanDisposisi,
+    remove: handleHapusDisposisi,
+  } = useDisposisi({
+    enabled: isDisposisiTab,
+    page,
+    pageSize,
+    search: debouncedSearch,
+    setPage,
+  })
 
   const [openDisposisiModal, setOpenDisposisiModal] = useState(false)
   const [editingDisposisi, setEditingDisposisi] =
@@ -111,36 +113,6 @@ export default function Page() {
     useState<DisposisiItem | null>(null)
   const [deletingDisposisi, setDeletingDisposisi] =
     useState<DisposisiItem | null>(null)
-
-  const loadDisposisi = useCallback(async () => {
-    try {
-      setLoadingDisposisi(true)
-      setErrorDisposisi(null)
-
-      const result = await fetchDisposisiList({
-        page,
-        limit: pageSize,
-        search: debouncedSearch,
-      })
-
-      setDisposisiList(result.items)
-      setTotalDisposisi(result.pagination.total)
-    } catch (error) {
-      setErrorDisposisi(
-        error instanceof Error
-          ? error.message
-          : 'Gagal memuat data disposisi',
-      )
-    } finally {
-      setLoadingDisposisi(false)
-    }
-  }, [page, pageSize, debouncedSearch])
-
-  useEffect(() => {
-    if (isDisposisiTab) {
-      void loadDisposisi()
-    }
-  }, [isDisposisiTab, loadDisposisi])
 
   // ---------------------------------------------------------------------------
   // Handlers
@@ -174,35 +146,6 @@ export default function Page() {
   function handleCloseDisposisiModal() {
     setOpenDisposisiModal(false)
     setEditingDisposisi(null)
-  }
-
-  async function handleSimpanDisposisi(
-    data: CreateDisposisiInput,
-    editId?: string,
-  ) {
-    if (editId) {
-      await patchUpdateDisposisi(editId, data)
-      await loadDisposisi()
-      return
-    }
-
-    await postCreateDisposisi(data)
-
-    if (page !== 1) {
-      setPage(1)
-    } else {
-      await loadDisposisi()
-    }
-  }
-
-  async function handleHapusDisposisi(id: string) {
-    await deleteDisposisiById(id)
-
-    if (disposisiList.length === 1 && page > 1) {
-      setPage((prev) => prev - 1)
-    } else {
-      await loadDisposisi()
-    }
   }
 
   // ---------------------------------------------------------------------------
