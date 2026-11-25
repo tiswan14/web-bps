@@ -39,7 +39,7 @@ export async function getMonitoringPulsaData(params: {
     prisma.pegawai.findMany({
       where: { aktif: true },
       orderBy: { nama: 'asc' },
-      select: { id: true, nama: true, nip: true, jabatan: true },
+      select: { id: true, nama: true, jabatan: true },
     }),
     prisma.mitraStatistik.findMany({
       where: { aktif: true },

@@ -4,7 +4,6 @@ export type StatusPersetujuanPulsa = 'DIAJUKAN' | 'DISETUJUI' | 'DITOLAK'
 export interface MasterPegawaiOption {
   id: string
   nama: string
-  nip: string
   jabatan: string | null
 }
 
