@@ -53,7 +53,7 @@ export function getPenugasanAnggaranColumns(): ColumnDef<
     },
     {
       id: 'nipBos',
-      header: 'NIP',
+      header: 'NIP BPS',
       accessorFn: (row) => row.pegawai.nipBps,
     },
     {
