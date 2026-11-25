@@ -72,6 +72,8 @@ model Pegawai {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  alokasiPulsa MonitoringPulsaAlokasi[]
+
   @@index([nama])
   @@index([fungsiId])
 }
@@ -100,6 +102,11 @@ model User {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  bookingAulaDicatat  BookingAula[]
+  pengadaanDicatat    Pengadaan[]
+  kegiatanPulsaDibuat MonitoringPulsaKegiatan[] @relation("PulsaDibuatOleh")
+  alokasiPulsaVerif   MonitoringPulsaAlokasi[]  @relation("PulsaDiverifikasiOleh")
 }
 
 // ==========================================
@@ -243,5 +250,151 @@ model Disposisi {
 
   @@index([suratId])
   @@index([kepadaPegawaiId])
+  @@index([dicatatOleh])
+}
+
+model BookingAula {
+  id String @id @default(cuid())
+
+  ruangId   String
+  namaRuang String
+
+  tanggal    DateTime @db.Date
+  jamMulai   String
+  jamSelesai String
+
+  namaPeminjam  String
+  jumlahPeserta Int
+  kegiatan      String
+
+  dicatatOleh String
+  pencatat    User   @relation(fields: [dicatatOleh], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tanggal])
+  @@index([ruangId, tanggal])
+  @@index([dicatatOleh])
+}
+
+enum TipePetugasPulsa {
+  ORGANIK
+  MITRA
+}
+
+enum StatusPersetujuanPulsa {
+  DIAJUKAN
+  DISETUJUI
+  DITOLAK
+}
+
+model MitraStatistik {
+  id           String                   @id @default(cuid())
+  nama         String
+  sobatId      String?                  @unique
+  nik          String?
+  noHp         String?
+  kecamatan    String?
+  aktif        Boolean                  @default(true)
+  alokasiPulsa MonitoringPulsaAlokasi[]
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
+
+  @@index([nama])
+}
+
+model MonitoringPulsaKegiatan {
+  id              String                   @id @default(cuid())
+  bulan           Int
+  tahun           Int
+  namaKegiatan    String
+  nominalPerOrang Int
+  keterangan      String?
+  dibuatOlehId    String
+  dibuatOleh      User                     @relation("PulsaDibuatOleh", fields: [dibuatOlehId], references: [id], onDelete: Restrict)
+  alokasi         MonitoringPulsaAlokasi[]
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+
+  @@index([tahun, bulan])
+}
+
+model MonitoringPulsaAlokasi {
+  id                 String                  @id @default(cuid())
+  kegiatanId         String
+  kegiatan           MonitoringPulsaKegiatan @relation(fields: [kegiatanId], references: [id], onDelete: Cascade)
+  tipePetugas        TipePetugasPulsa
+  pegawaiId          String?
+  pegawai            Pegawai?                @relation(fields: [pegawaiId], references: [id], onDelete: Restrict)
+  mitraId            String?
+  mitra              MitraStatistik?         @relation(fields: [mitraId], references: [id], onDelete: Restrict)
+  nominal            Int
+  status             StatusPersetujuanPulsa  @default(DIAJUKAN)
+  catatanVerifikasi  String?
+  diverifikasiOlehId String?
+  diverifikasiOleh   User?                   @relation("PulsaDiverifikasiOleh", fields: [diverifikasiOlehId], references: [id], onDelete: SetNull)
+  diverifikasiAt     DateTime?
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+
+  @@unique([kegiatanId, pegawaiId])
+  @@unique([kegiatanId, mitraId])
+  @@index([kegiatanId])
+  @@index([pegawaiId])
+  @@index([mitraId])
+}
+
+enum JenisPengadaan {
+  BARANG
+  JASA
+}
+
+enum StatusPengadaan {
+  DRAFT
+  USULAN
+  PROSES
+  KONTRAK
+  SELESAI
+  BATAL
+}
+
+model Pengadaan {
+  id            String @id @default(cuid())
+  kodePengadaan String @unique
+
+  tahunAnggaran  Int
+  tanggalUsulan  DateTime        @db.Date
+  jenisPengadaan JenisPengadaan  @default(BARANG)
+  namaProduk     String
+  detilPok       String
+  kodePok        String
+  status         StatusPengadaan @default(USULAN)
+
+  // Informasi Keuangan
+  rencana   Int
+  realisasi Int @default(0)
+
+  // Dokumen & Realisasi
+  formPermintaan       String?
+  linkKak              String?
+  jenisDokumen         String?
+  nomorDokumen         String?
+  tanggalDokumen       DateTime? @db.Date
+  namaPenyedia         String?
+  tanggalPembayaran    DateTime? @db.Date
+  nomorBuktiPembayaran String?
+  linkEpurchasing      String?
+  keterangan           String?
+
+  dicatatOleh String
+  pencatat    User   @relation(fields: [dicatatOleh], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tahunAnggaran])
+  @@index([tanggalUsulan])
+  @@index([status])
   @@index([dicatatOleh])
 }
