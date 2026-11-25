@@ -43,7 +43,7 @@ export const navigationGroups: NavigationGroup[] = [
     children: [
       {
         title: 'Organik',
-        href: '/pegawai',
+        href: '/pegawai/organik',
         icon: UserRound,
         permission: 'pegawai.manage',
       },

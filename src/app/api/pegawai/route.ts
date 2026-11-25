@@ -36,6 +36,45 @@ function getPositiveInteger(value: string | null, fallback: number) {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback
 }
 
+function getString(payload: Record<string, unknown>, key: string) {
+  return typeof payload[key] === 'string'
+    ? (payload[key] as string).trim()
+    : ''
+}
+
+function getNullableString(payload: Record<string, unknown>, key: string) {
+  return getString(payload, key) || null
+}
+
+const pegawaiSelect = {
+  id: true,
+  nama: true,
+  nipLama: true,
+  nipBaru: true,
+  nik: true,
+  email: true,
+  noHp: true,
+  golongan: true,
+  pangkat: true,
+  jabatan: true,
+  pendidikan: true,
+  npwp: true,
+  rekening: true,
+  bank: true,
+  linkSkJabatan: true,
+  linkSkPangkat: true,
+  foto: true,
+  aktif: true,
+  fungsi: {
+    select: {
+      id: true,
+      nama: true,
+    },
+  },
+  createdAt: true,
+  updatedAt: true,
+}
+
 export async function GET(request: NextRequest) {
   try {
     const auth = await authorize()
@@ -62,17 +101,33 @@ export async function GET(request: NextRequest) {
         : {}),
       ...(search
         ? {
-          OR: [
-            { nama: { contains: search, mode: 'insensitive' as const } },
-            { nip: { contains: search } },
-            { email: { contains: search, mode: 'insensitive' as const } },
-            { nipBps: { contains: search } },
-          ],
-        }
+            OR: [
+              {
+                nama: {
+                  contains: search,
+                  mode: 'insensitive' as const,
+                },
+              },
+              { nipLama: { contains: search } },
+              { nipBaru: { contains: search } },
+              { nik: { contains: search } },
+              {
+                email: {
+                  contains: search,
+                  mode: 'insensitive' as const,
+                },
+              },
+            ],
+          }
         : {}),
-      ...(golongan ? { golonganAkhir: golongan } : {}),
+      ...(golongan ? { golongan } : {}),
       ...(jabatan
-        ? { jabatan: { contains: jabatan, mode: 'insensitive' as const } }
+        ? {
+            jabatan: {
+              contains: jabatan,
+              mode: 'insensitive' as const,
+            },
+          }
         : {}),
       ...(aktifParam === 'true'
         ? { aktif: true }
@@ -84,25 +139,7 @@ export async function GET(request: NextRequest) {
     const [data, total] = await prisma.$transaction([
       prisma.pegawai.findMany({
         where,
-        select: {
-          id: true,
-          nama: true,
-          nip: true,
-          email: true,
-          nipBps: true,
-          golonganAkhir: true,
-          pangkat: true,
-          jabatan: true,
-          aktif: true,
-          fungsi: {
-            select: {
-              id: true,
-              nama: true,
-            },
-          },
-          createdAt: true,
-          updatedAt: true,
-        },
+        select: pegawaiSelect,
         orderBy: { nama: 'asc' },
         skip: (page - 1) * limit,
         take: limit,
@@ -148,42 +185,30 @@ export async function POST(request: NextRequest) {
 
     const payload = body as Record<string, unknown>
 
-    const nama = typeof payload.nama === 'string' ? payload.nama.trim() : ''
-    const nip = typeof payload.nip === 'string' ? payload.nip.trim() : ''
+    const nama = getString(payload, 'nama')
+    const nipLama = getString(payload, 'nipLama')
+    const nipBaru = getString(payload, 'nipBaru')
+    const nik = getString(payload, 'nik')
+    const jabatan = getString(payload, 'jabatan')
+    const golongan = getString(payload, 'golongan')
+    const pangkat = getString(payload, 'pangkat')
+    const userId = getString(payload, 'userId')
 
-    const email =
-      typeof payload.email === 'string' ? payload.email.trim() || null : null
-
-    const nipBps =
-      typeof payload.nipBps === 'string'
-        ? payload.nipBps.trim() || null
-        : null
-
-    const golonganAkhir =
-      typeof payload.golonganAkhir === 'string'
-        ? payload.golonganAkhir.trim() || null
-        : null
-
-    const pangkat =
-      typeof payload.pangkat === 'string'
-        ? payload.pangkat.trim() || null
-        : null
-
-    const jabatan =
-      typeof payload.jabatan === 'string'
-        ? payload.jabatan.trim() || null
-        : null
-
-    const fungsiId =
-      typeof payload.fungsiId === 'string'
-        ? payload.fungsiId.trim() || null
-        : null
-
-    if (!nama || !nip) {
+    if (
+      !nama ||
+      !nipLama ||
+      !nipBaru ||
+      !nik ||
+      !jabatan ||
+      !golongan ||
+      !pangkat ||
+      !userId
+    ) {
       return NextResponse.json(
         {
           success: false,
-          message: 'Nama dan NIP wajib diisi',
+          message:
+            'Nama, NIP lama, NIP baru, NIK, jabatan, golongan, pangkat, dan akun pengguna wajib diisi',
         },
         { status: 400 },
       )
@@ -192,23 +217,54 @@ export async function POST(request: NextRequest) {
     const existingPegawai = await prisma.pegawai.findFirst({
       where: {
         OR: [
-          { nip },
-          ...(email ? [{ email }] : []),
-          ...(nipBps ? [{ nipBps }] : []),
+          { nipLama },
+          { nipBaru },
+          { nik },
         ],
       },
-      select: { nip: true, email: true, nipBps: true },
+      select: {
+        id: true,
+      },
     })
 
     if (existingPegawai) {
       return NextResponse.json(
         {
           success: false,
-          message: 'NIP, email, atau NIP BPS sudah terdaftar',
+          message: 'NIP lama, NIP baru, atau NIK sudah terdaftar',
         },
         { status: 409 },
       )
     }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        pegawai: {
+          select: { id: true },
+        },
+      },
+    })
+
+    if (!user) {
+      return NextResponse.json(
+        { success: false, message: 'Akun pengguna tidak ditemukan' },
+        { status: 404 },
+      )
+    }
+
+    if (user.pegawai) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Akun pengguna sudah terhubung dengan pegawai lain',
+        },
+        { status: 409 },
+      )
+    }
+
+    const fungsiId = getNullableString(payload, 'fungsiId')
 
     if (fungsiId) {
       const fungsi = await prisma.fungsi.findUnique({
@@ -227,33 +283,25 @@ export async function POST(request: NextRequest) {
     const data = await prisma.pegawai.create({
       data: {
         nama,
-        nip,
-        email,
-        nipBps,
-        golonganAkhir,
-        pangkat,
+        nipLama,
+        nipBaru,
+        nik,
         jabatan,
+        golongan,
+        pangkat,
+        pendidikan: getNullableString(payload, 'pendidikan'),
+        noHp: getNullableString(payload, 'noHp'),
+        email: getNullableString(payload, 'email'),
+        npwp: getNullableString(payload, 'npwp'),
+        rekening: getNullableString(payload, 'rekening'),
+        bank: getNullableString(payload, 'bank'),
+        linkSkJabatan: getNullableString(payload, 'linkSkJabatan'),
+        linkSkPangkat: getNullableString(payload, 'linkSkPangkat'),
+        foto: getNullableString(payload, 'foto'),
         fungsiId,
+        userId,
       },
-      select: {
-        id: true,
-        nama: true,
-        nip: true,
-        email: true,
-        nipBps: true,
-        golonganAkhir: true,
-        pangkat: true,
-        jabatan: true,
-        aktif: true,
-        fungsi: {
-          select: {
-            id: true,
-            nama: true,
-          },
-        },
-        createdAt: true,
-        updatedAt: true,
-      },
+      select: pegawaiSelect,
     })
 
     return NextResponse.json(
