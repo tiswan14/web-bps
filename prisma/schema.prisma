@@ -20,54 +20,60 @@ enum Role {
 }
 
 // ==========================================
-// MASTER FUNGSI
-// ==========================================
-
-// Tim kerja di BPS, misalnya Sosial, Neraca,
-// Produksi, Distribusi, IPDS.
-model Fungsi {
-  id      String    @id @default(cuid())
-  nama    String    @unique
-  pegawai Pegawai[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-// ==========================================
 // MASTER PEGAWAI
 // ==========================================
 
 // Data kepegawaian organik.
 // Terhubung ke akun login melalui userId (opsional).
 model Pegawai {
-  id   String @id @default(cuid())
-  nama String
+  id String @id @default(cuid())
 
-  // NIP 18 digit, disimpan tanpa spasi.
-  nip String @unique
+  // Identitas pegawai (wajib diisi Admin)
+  nipLama String @unique
+  nipBaru String @unique
+  nama    String
+  nik     String @unique
 
+  // Informasi kepegawaian
+  jabatan    String
+  golongan   String
+  pangkat    String
+  pendidikan String?
+
+  // Informasi kontak
+  noHp  String?
   email String?
 
-  // NIP lama (9 digit).
-  nipBps String?
+  // Informasi perpajakan dan rekening
+  npwp     String?
+  rekening String?
+  bank     String?
 
-  golonganAkhir String?
-  pangkat       String?
-  jabatan       String?
-  aktif         Boolean @default(true)
+  // Dokumen pegawai
+  linkSkJabatan String?
+  linkSkPangkat String?
+  foto          String?
 
+  // Status keaktifan
+  aktif Boolean @default(true)
+
+  // Relasi fungsi
   fungsiId String?
   fungsi   Fungsi? @relation(fields: [fungsiId], references: [id], onDelete: SetNull)
 
-  userId String? @unique
-  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  // Relasi akun login (wajib)
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
 
+  // Relasi operasional
   disposisiDiterima  Disposisi[]
   penugasanAnggarans PenugasanAnggaran[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([nama])
+  @@index([fungsiId])
 }
 
 // ==========================================
@@ -97,15 +103,15 @@ model User {
 }
 
 // ==========================================
-// MASTER PERIODE
+// MASTER FUNGSI
 // ==========================================
 
-// Mengelompokkan seluruh data operasional berdasarkan periode.
-model Periode {
-  tahun Int @id
-
-  penugasanAnggarans PenugasanAnggaran[]
-  surat              Surat[]
+// Tim kerja di BPS, misalnya Sosial, Neraca,
+// Produksi, Distribusi, IPDS.
+model Fungsi {
+  id      String    @id @default(cuid())
+  nama    String    @unique
+  pegawai Pegawai[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -138,6 +144,21 @@ model PenugasanAnggaran {
   @@unique([pegawaiId, jenis, periodeId])
   @@index([pegawaiId])
   @@index([periodeId])
+}
+
+// ==========================================
+// MASTER PERIODE
+// ==========================================
+
+// Mengelompokkan seluruh data operasional berdasarkan periode.
+model Periode {
+  tahun Int @id
+
+  penugasanAnggarans PenugasanAnggaran[]
+  surat              Surat[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // ==========================================
