@@ -1,8 +1,10 @@
 
 import { NextRequest, NextResponse } from 'next/server'
+import { Prisma } from '@/generated/prisma/client'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
 import { hasPermission } from '@/lib/auth/permissions'
+import bcrypt from 'bcryptjs'
 
 type RouteContext = {
   params: Promise<{ id: string }>
@@ -34,25 +36,45 @@ async function authorize() {
   return { authorized: true as const }
 }
 
+function getString(payload: Record<string, unknown>, key: string) {
+  return typeof payload[key] === 'string'
+    ? (payload[key] as string).trim()
+    : ''
+}
+
+function isObjectPayload(
+  body: unknown,
+): body is Record<string, unknown> {
+  return (
+    typeof body === 'object' &&
+    body !== null &&
+    !Array.isArray(body)
+  )
+}
+
 const pegawaiSelect = {
   id: true,
   nama: true,
-  nip: true,
+  nipLama: true,
+  nipBaru: true,
+  nik: true,
   email: true,
-  nipBps: true,
-  golonganAkhir: true,
+  noHp: true,
+  golongan: true,
   pangkat: true,
   jabatan: true,
+  pendidikan: true,
+  npwp: true,
+  rekening: true,
+  bank: true,
+  linkSkJabatan: true,
+  linkSkPangkat: true,
+  foto: true,
   aktif: true,
-  fungsi: {
-    select: {
-      id: true,
-      nama: true,
-    },
-  },
   createdAt: true,
   updatedAt: true,
-}
+} satisfies Prisma.PegawaiSelect
+
 
 export async function GET(
   _request: NextRequest,
@@ -67,7 +89,18 @@ export async function GET(
 
     const data = await prisma.pegawai.findUnique({
       where: { id },
-      select: pegawaiSelect,
+      select: {
+        ...pegawaiSelect,
+        user: {
+          select: {
+            id: true,
+            username: true,
+            email: true,
+            role: true,
+            isActive: true,
+          },
+        },
+      },
     })
 
     if (!data) {
@@ -92,6 +125,7 @@ export async function GET(
   }
 }
 
+
 export async function PATCH(
   request: NextRequest,
   { params }: RouteContext,
@@ -104,37 +138,37 @@ export async function PATCH(
     const { id } = await params
     const body: unknown = await request.json()
 
-    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    if (!isObjectPayload(body)) {
       return NextResponse.json(
         { success: false, message: 'Format request tidak valid' },
         { status: 400 },
       )
     }
 
-    const payload = body as Record<string, unknown>
-
-    const existing = await prisma.pegawai.findUnique({
-      where: { id },
-      select: { id: true },
-    })
-
-    if (!existing) {
-      return NextResponse.json(
-        { success: false, message: 'Pegawai tidak ditemukan' },
-        { status: 404 },
-      )
-    }
+    const payload = body
 
     const allowedFields = [
       'nama',
-      'nip',
-      'email',
-      'nipBps',
-      'golonganAkhir',
-      'pangkat',
+      'nipLama',
+      'nipBaru',
+      'nik',
       'jabatan',
-      'fungsiId',
+      'golongan',
+      'pangkat',
+      'pendidikan',
+      'email',
+      'noHp',
+      'npwp',
+      'rekening',
+      'bank',
+      'linkSkJabatan',
+      'linkSkPangkat',
+      'foto',
       'aktif',
+      'username',
+      'emailAkun',
+      'password',
+      'isActive',
     ]
 
     const invalidFields = Object.keys(payload).filter(
@@ -152,121 +186,280 @@ export async function PATCH(
       )
     }
 
-    const data: {
-      nama?: string
-      nip?: string
-      email?: string | null
-      nipBps?: string | null
-      golonganAkhir?: string | null
-      pangkat?: string | null
-      jabatan?: string | null
-      fungsiId?: string | null
-      aktif?: boolean
-    } = {}
+    const existing = await prisma.pegawai.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        userId: true,
+      },
+    })
 
-    const textFields = [
+    if (!existing) {
+      return NextResponse.json(
+        { success: false, message: 'Pegawai tidak ditemukan' },
+        { status: 404 },
+      )
+    }
+
+    const requiredFields = [
       'nama',
-      'nip',
-      'email',
-      'nipBps',
-      'golonganAkhir',
-      'pangkat',
+      'nipLama',
+      'nipBaru',
+      'nik',
       'jabatan',
-      'fungsiId',
+      'golongan',
+      'pangkat',
     ] as const
 
-    for (const field of textFields) {
+    const optionalFields = [
+      'pendidikan',
+      'email',
+      'noHp',
+      'npwp',
+      'rekening',
+      'bank',
+      'linkSkJabatan',
+      'linkSkPangkat',
+      'foto',
+    ] as const
+
+    const pegawaiData: Prisma.PegawaiUpdateInput = {}
+
+    for (const field of requiredFields) {
+      if (!(field in payload)) continue
+
+      const value = payload[field]
+
+      if (typeof value !== 'string' || !value.trim()) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: `Field ${field} wajib diisi`,
+          },
+          { status: 400 },
+        )
+      }
+
+      Object.assign(pegawaiData, {
+        [field]: value.trim(),
+      })
+    }
+
+    for (const field of optionalFields) {
       if (!(field in payload)) continue
 
       const value = payload[field]
 
       if (value !== null && typeof value !== 'string') {
         return NextResponse.json(
-          { success: false, message: `Field ${field} harus berupa teks` },
+          {
+            success: false,
+            message: `Field ${field} harus berupa teks`,
+          },
           { status: 400 },
         )
       }
 
-      const normalized = typeof value === 'string' ? value.trim() : null
-
-      if (
-        (field === 'nama' || field === 'nip') &&
-        !normalized
-      ) {
-        return NextResponse.json(
-          { success: false, message: `Field ${field} tidak boleh kosong` },
-          { status: 400 },
-        )
-      }
-
-      if (field === 'nama') data.nama = normalized ?? ''
-      if (field === 'nip') data.nip = normalized ?? ''
-      if (field === 'email') data.email = normalized || null
-      if (field === 'nipBps') data.nipBps = normalized || null
-      if (field === 'golonganAkhir') data.golonganAkhir = normalized || null
-      if (field === 'pangkat') data.pangkat = normalized || null
-      if (field === 'jabatan') data.jabatan = normalized || null
-      if (field === 'fungsiId') data.fungsiId = normalized || null
+      Object.assign(pegawaiData, {
+        [field]: typeof value === 'string'
+          ? value.trim() || null
+          : null,
+      })
     }
 
     if ('aktif' in payload) {
       if (typeof payload.aktif !== 'boolean') {
         return NextResponse.json(
-          { success: false, message: 'Field aktif harus berupa boolean' },
+          {
+            success: false,
+            message: 'Field aktif harus berupa boolean',
+          },
           { status: 400 },
         )
       }
 
-      data.aktif = payload.aktif
+      pegawaiData.aktif = payload.aktif
     }
 
-    if (Object.keys(data).length === 0) {
+    const userData: Prisma.UserUpdateInput = {}
+
+    if ('username' in payload) {
+      const username = getString(payload, 'username')
+
+      if (!username) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: 'Username tidak boleh kosong',
+          },
+          { status: 400 },
+        )
+      }
+
+      userData.username = username
+    }
+
+    if ('emailAkun' in payload) {
+      const emailAkun = getString(payload, 'emailAkun')
+
+      if (!emailAkun) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: 'Email akun tidak boleh kosong',
+          },
+          { status: 400 },
+        )
+      }
+
+      userData.email = emailAkun
+    }
+
+    if ('password' in payload) {
+      const password = getString(payload, 'password')
+
+      if (password) {
+        if (password.length < 8) {
+          return NextResponse.json(
+            {
+              success: false,
+              message: 'Password minimal 8 karakter',
+            },
+            { status: 400 },
+          )
+        }
+
+        userData.passwordHash = await bcrypt.hash(password, 12)
+      }
+    }
+
+    if ('isActive' in payload) {
+      if (typeof payload.isActive !== 'boolean') {
+        return NextResponse.json(
+          {
+            success: false,
+            message: 'Field isActive harus berupa boolean',
+          },
+          { status: 400 },
+        )
+      }
+
+      userData.isActive = payload.isActive
+    }
+
+    const hasPegawaiChanges = Object.keys(pegawaiData).length > 0
+    const hasUserChanges = Object.keys(userData).length > 0
+
+    if (!hasPegawaiChanges && !hasUserChanges) {
       return NextResponse.json(
-        { success: false, message: 'Tidak ada data untuk diperbarui' },
+        {
+          success: false,
+          message: 'Tidak ada data untuk diperbarui',
+        },
         { status: 400 },
       )
     }
 
-    if (data.fungsiId) {
-      const fungsi = await prisma.fungsi.findUnique({
-        where: { id: data.fungsiId },
-        select: { id: true },
-      })
+    const userId = existing.userId
 
-      if (!fungsi) {
-        return NextResponse.json(
-          { success: false, message: 'Fungsi tidak ditemukan' },
-          { status: 404 },
-        )
-      }
-    }
-
-    const duplicate = await prisma.pegawai.findFirst({
-      where: {
-        id: { not: id },
-        OR: [
-          ...(data.nip ? [{ nip: data.nip }] : []),
-          ...(data.email ? [{ email: data.email }] : []),
-          ...(data.nipBps ? [{ nipBps: data.nipBps }] : []),
-        ],
-      },
-      select: { id: true },
-    })
-
-    if (duplicate) {
+    if (hasUserChanges && !userId) {
       return NextResponse.json(
         {
           success: false,
-          message: 'NIP, email, atau NIP BPS sudah digunakan pegawai lain',
+          message: 'Pegawai belum memiliki akun pengguna',
         },
         { status: 409 },
       )
     }
 
-    const updated = await prisma.pegawai.update({
-      where: { id },
-      data,
-      select: pegawaiSelect,
+    // Periksa duplikasi identitas pegawai
+    const duplicatePegawai = await prisma.pegawai.findFirst({
+      where: {
+        id: { not: id },
+        OR: [
+          ...(typeof pegawaiData.nipLama === 'string'
+            ? [{ nipLama: pegawaiData.nipLama }]
+            : []),
+          ...(typeof pegawaiData.nipBaru === 'string'
+            ? [{ nipBaru: pegawaiData.nipBaru }]
+            : []),
+          ...(typeof pegawaiData.nik === 'string'
+            ? [{ nik: pegawaiData.nik }]
+            : []),
+        ],
+      },
+      select: { id: true },
+    })
+
+    if (duplicatePegawai) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'NIP lama, NIP baru, atau NIK sudah terdaftar',
+        },
+        { status: 409 },
+      )
+    }
+
+    // Periksa duplikasi akun
+    if (hasUserChanges && userId) {
+      const duplicateUser = await prisma.user.findFirst({
+        where: {
+          id: { not: userId },
+          OR: [
+            ...(typeof userData.username === 'string'
+              ? [{ username: userData.username }]
+              : []),
+            ...(typeof userData.email === 'string'
+              ? [{ email: userData.email }]
+              : []),
+          ],
+        },
+        select: { id: true },
+      })
+
+      if (duplicateUser) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: 'Username atau email akun sudah digunakan',
+          },
+          { status: 409 },
+        )
+      }
+    }
+
+    // Update pegawai dan akun secara atomik
+    const updated = await prisma.$transaction(async (tx) => {
+      if (hasPegawaiChanges) {
+        await tx.pegawai.update({
+          where: { id },
+          data: pegawaiData,
+        })
+      }
+
+      if (hasUserChanges && userId) {
+        await tx.user.update({
+          where: { id: userId },
+          data: userData,
+        })
+      }
+
+      return tx.pegawai.findUniqueOrThrow({
+        where: { id },
+        select: {
+          ...pegawaiSelect,
+          user: {
+            select: {
+              id: true,
+              username: true,
+              email: true,
+              role: true,
+              isActive: true,
+            },
+          },
+        },
+      })
     })
 
     return NextResponse.json({
@@ -278,11 +471,15 @@ export async function PATCH(
     console.error('[PATCH /api/pegawai/:id]', error)
 
     return NextResponse.json(
-      { success: false, message: 'Gagal memperbarui data pegawai' },
+      {
+        success: false,
+        message: 'Gagal memperbarui data pegawai',
+      },
       { status: 500 },
     )
   }
 }
+
 
 export async function DELETE(
   _request: NextRequest,
@@ -297,7 +494,10 @@ export async function DELETE(
 
     const existing = await prisma.pegawai.findUnique({
       where: { id },
-      select: { id: true, nama: true },
+      select: {
+        id: true,
+        nama: true,
+      },
     })
 
     if (!existing) {

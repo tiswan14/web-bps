@@ -1,42 +1,49 @@
-
 'use client'
 
-import { useMemo, useState } from 'react'
-import { Plus, Search } from 'lucide-react'
+import { useState } from 'react'
+import { Search } from 'lucide-react'
 
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { PageContainer } from '@/components/shared/page-container'
 import { PageHeader } from '@/components/shared/page-header'
 import { PageToolbar } from '@/components/shared/page-toolbar'
 
 import { PegawaiTable } from '@/modules/pegawai/components/pegawai-table'
-import { usePegawai } from '@/modules/pegawai/hooks/use-pegawai'
+import { PegawaiFormDialog } from '@/modules/pegawai/components/pegawai-form-dialog'
+import { PegawaiDetailDialog } from '@/modules/pegawai/components/pegawai-detail-dialog'
+import { PegawaiEditDialog } from '@/modules/pegawai/components/pegawai-edit-dialog'
+import { PegawaiDeleteDialog } from '@/modules/pegawai/components/pegawai-delete-dialog'
+
+import type { Pegawai } from '@/modules/pegawai/types/pegawai.type'
 
 export default function Page() {
   const [search, setSearch] = useState('')
+  const [selectedPegawai, setSelectedPegawai] = useState<Pegawai | null>(null)
 
-  const {
-    pegawai,
-    loading,
-    error,
-    pagination,
-  } = usePegawai('organik')
+  const [detailOpen, setDetailOpen] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
 
-  const filteredPegawai = useMemo(() => {
-    const keyword = search.toLowerCase().trim()
+  const [refreshKey, setRefreshKey] = useState(0)
 
-    if (!keyword) return pegawai
+  const refreshData = () => {
+    setRefreshKey((previous) => previous + 1)
+  }
 
-    return pegawai.filter((item) =>
-      [
-        item.nama,
-        item.nip,
-        item.nipBps,
-        item.jabatan,
-      ].some((value) => value?.toLowerCase().includes(keyword)),
-    )
-  }, [pegawai, search])
+  const handleDetail = (pegawai: Pegawai) => {
+    setSelectedPegawai(pegawai)
+    setDetailOpen(true)
+  }
+
+  const handleEdit = (pegawai: Pegawai) => {
+    setSelectedPegawai(pegawai)
+    setEditOpen(true)
+  }
+
+  const handleDelete = (pegawai: Pegawai) => {
+    setSelectedPegawai(pegawai)
+    setDeleteOpen(true)
+  }
 
   return (
     <PageContainer>
@@ -59,31 +66,37 @@ export default function Page() {
           </div>
         }
         actions={
-          <Button className='cursor-pointer'>
-            <Plus className='size-4' />
-            Tambah Pegawai
-          </Button>
+          <PegawaiFormDialog onSuccess={refreshData} />
         }
       />
 
-      {loading ? (
-        <p className='text-sm text-muted-foreground'>
-          Memuat data...
-        </p>
-      ) : error ? (
-        <p className='text-sm text-destructive'>{error}</p>
-      ) : (
-        <>
-          <div className='text-sm text-muted-foreground'>
-            Menampilkan {filteredPegawai.length} dari {pagination?.total ?? 0} pegawai
-          </div>
+      <PegawaiTable
+        key={refreshKey}
+        search={search}
+        onDetail={handleDetail}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+      />
 
-          <PegawaiTable
-            data={filteredPegawai}
-            showFungsi={false}
-          />
-        </>
-      )}
+      <PegawaiDetailDialog
+        pegawai={selectedPegawai}
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+      />
+
+      <PegawaiEditDialog
+        pegawai={selectedPegawai}
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        onSuccess={refreshData}
+      />
+
+      <PegawaiDeleteDialog
+        pegawai={selectedPegawai}
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        onSuccess={refreshData}
+      />
     </PageContainer>
   )
 }

@@ -19,20 +19,41 @@ enum Role {
   PPK
 }
 
+// Akun autentikasi aplikasi
+model User {
+  id           String @id @default(cuid())
+  username     String @unique
+  email        String @unique
+  passwordHash String
+
+  role     Role    @default(PEGAWAI)
+  isActive Boolean @default(true)
+
+  lastLoginAt      DateTime?
+  failedLoginCount Int       @default(0)
+  lockedUntil      DateTime?
+
+  // Relasi master pegawai
+  pegawai Pegawai?
+
+  // Relasi operasional
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 // ==========================================
 // MASTER PEGAWAI
 // ==========================================
 
-// Data kepegawaian organik.
-// Terhubung ke akun login melalui userId (opsional).
 model Pegawai {
   id String @id @default(cuid())
 
-  // Identitas pegawai (wajib diisi Admin)
+  // Identitas pegawai
   nipLama String @unique
   nipBaru String @unique
-  nama    String
   nik     String @unique
+  nama    String
 
   // Informasi kepegawaian
   jabatan    String
@@ -41,8 +62,8 @@ model Pegawai {
   pendidikan String?
 
   // Informasi kontak
-  noHp  String?
   email String?
+  noHp  String?
 
   // Informasi perpajakan dan rekening
   npwp     String?
@@ -57,354 +78,14 @@ model Pegawai {
   // Status keaktifan
   aktif Boolean @default(true)
 
-  // Relasi fungsi
-  fungsiId String?
-  fungsi   Fungsi? @relation(fields: [fungsiId], references: [id], onDelete: SetNull)
-
-  // Relasi akun login (wajib)
-  userId String @unique
-  user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
+  // Akun login bersifat opsional
+  userId String? @unique
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Restrict)
 
   // Relasi operasional
-  disposisiDiterima  Disposisi[]
-  penugasanAnggarans PenugasanAnggaran[]
-  alokasiPulsa       MonitoringPulsaAlokasi[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([nama])
-  @@index([fungsiId])
-}
-
-// ==========================================
-// USER ACCOUNT
-// ==========================================
-
-// Akun login. Login boleh memakai username atau email.
-model User {
-  id           String @id @default(cuid())
-  username     String @unique
-  email        String @unique
-  passwordHash String
-
-  role     Role    @default(PEGAWAI)
-  isActive Boolean @default(true)
-
-  lastLoginAt      DateTime?
-  failedLoginCount Int       @default(0)
-  lockedUntil      DateTime?
-
-  pegawai             Pegawai?
-  suratDicatat        Surat[]
-  disposisiDicatat    Disposisi[]
-  bookingAulaDicatat  BookingAula[]
-  pengadaanDicatat    Pengadaan[]
-  kegiatanPulsaDibuat MonitoringPulsaKegiatan[] @relation("PulsaDibuatOleh")
-  alokasiPulsaVerif   MonitoringPulsaAlokasi[]  @relation("PulsaDiverifikasiOleh")
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-// ==========================================
-// MASTER FUNGSI
-// ==========================================
-
-// Tim kerja di BPS, misalnya Sosial, Neraca,
-// Produksi, Distribusi, IPDS.
-model Fungsi {
-  id      String    @id @default(cuid())
-  nama    String    @unique
-  pegawai Pegawai[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-// ==========================================
-// PENUGASAN ANGGARAN
-// ==========================================
-
-enum JenisPenugasanAnggaran {
-  KUASA_PENGGUNA_ANGGARAN
-  PEJABAT_PENANDATANGAN_SURAT_PERINTAH_MEMBAYAR
-  PEJABAT_PEMBUAT_KOMITMEN
-  PEJABAT_PENGADAAN_BARANG_DAN_JASA
-  BENDAHARA_PENGELUARAN
-}
-
-model PenugasanAnggaran {
-  id        String                 @id @default(cuid())
-  pegawaiId String
-  periodeId Int
-  jenis     JenisPenugasanAnggaran
-
-  pegawai Pegawai @relation(fields: [pegawaiId], references: [id], onDelete: Cascade)
-  periode Periode @relation(fields: [periodeId], references: [tahun], onDelete: Restrict)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([pegawaiId, jenis, periodeId])
-  @@index([pegawaiId])
-  @@index([periodeId])
-}
-
-// ==========================================
-// MASTER PERIODE
-// ==========================================
-
-// Mengelompokkan seluruh data operasional berdasarkan periode.
-model Periode {
-  tahun Int @id
-
-  penugasanAnggarans PenugasanAnggaran[]
-  surat              Surat[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-// ==========================================
-// SURAT
-// ==========================================
-
-// Arah surat: masuk atau keluar.
-enum JenisSurat {
-  MASUK
-  KELUAR
-}
-
-// Tingkat kepentingan surat.
-enum SifatSurat {
-  BIASA
-  PENTING
-  SEGERA
-  RAHASIA
-}
-
-// Catatan surat masuk dan keluar yang dicatat operator.
-model Surat {
-  id    String     @id @default(cuid())
-  jenis JenisSurat
-
-  // Tidak dibuat unik karena nomor surat bisa berulang.
-  nomor String
-
-  tanggal DateTime @db.Date
-
-  // Asal surat kalau masuk, tujuan surat kalau keluar.
-  asalTujuan String
-  perihal    String
-
-  sifat SifatSurat @default(BIASA)
-
-  // Arti dan pilihan isinya belum dikonfirmasi mentor.
-  pengantaran String?
-  status      String?
-
-  dicatatOleh String
-  pencatat    User   @relation(fields: [dicatatOleh], references: [id], onDelete: Restrict)
-
-  // Periode pencatatan surat.
-  periodeId Int
-  periode   Periode @relation(fields: [periodeId], references: [tahun], onDelete: Restrict)
-
-  disposisi Disposisi[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([tanggal])
-  @@index([nomor])
-  @@index([periodeId])
-  @@index([jenis, periodeId])
-}
-
-// ==========================================
-// DISPOSISI
-// ==========================================
-
-// Penerusan satu surat ke satu pegawai beserta instruksinya.
-// Periode mengikuti surat induknya.
-model Disposisi {
-  id String @id @default(cuid())
-
-  suratId String
-  surat   Surat  @relation(fields: [suratId], references: [id], onDelete: Restrict)
-
-  kepadaPegawaiId String
-  kepada          Pegawai @relation(fields: [kepadaPegawaiId], references: [id], onDelete: Restrict)
-
-  dicatatOleh String
-  pencatat    User   @relation(fields: [dicatatOleh], references: [id], onDelete: Restrict)
-
-  instruksi String
-  tanggal   DateTime @db.Date
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([suratId])
-  @@index([kepadaPegawaiId])
-  @@index([dicatatOleh])
-}
-
-// ==========================================
-// BOOKING AULA
-// ==========================================
-
-model BookingAula {
-  id String @id @default(cuid())
-
-  ruangId   String
-  namaRuang String
-
-  tanggal    DateTime @db.Date
-  jamMulai   String
-  jamSelesai String
-
-  namaPeminjam  String
-  jumlahPeserta Int
-  kegiatan      String
-
-  dicatatOleh String
-  pencatat    User   @relation(fields: [dicatatOleh], references: [id], onDelete: Restrict)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([tanggal])
-  @@index([ruangId, tanggal])
-  @@index([dicatatOleh])
-}
-
-// ==========================================
-// MONITORING PULSA
-// ==========================================
-
-enum TipePetugasPulsa {
-  ORGANIK
-  MITRA
-}
-
-enum StatusPersetujuanPulsa {
-  DIAJUKAN
-  DISETUJUI
-  DITOLAK
-}
-
-model MitraStatistik {
-  id           String                   @id @default(cuid())
-  nama         String
-  sobatId      String?                  @unique
-  nik          String?
-  noHp         String?
-  kecamatan    String?
-  aktif        Boolean                  @default(true)
-  alokasiPulsa MonitoringPulsaAlokasi[]
-  createdAt    DateTime                 @default(now())
-  updatedAt    DateTime                 @updatedAt
-
-  @@index([nama])
-}
-
-model MonitoringPulsaKegiatan {
-  id              String                   @id @default(cuid())
-  bulan           Int
-  tahun           Int
-  namaKegiatan    String
-  nominalPerOrang Int
-  keterangan      String?
-  dibuatOlehId    String
-  dibuatOleh      User                     @relation("PulsaDibuatOleh", fields: [dibuatOlehId], references: [id], onDelete: Restrict)
-  alokasi         MonitoringPulsaAlokasi[]
-  createdAt       DateTime                 @default(now())
-  updatedAt       DateTime                 @updatedAt
-
-  @@index([tahun, bulan])
-}
-
-model MonitoringPulsaAlokasi {
-  id                 String                  @id @default(cuid())
-  kegiatanId         String
-  kegiatan           MonitoringPulsaKegiatan @relation(fields: [kegiatanId], references: [id], onDelete: Cascade)
-  tipePetugas        TipePetugasPulsa
-  pegawaiId          String?
-  pegawai            Pegawai?                @relation(fields: [pegawaiId], references: [id], onDelete: Restrict)
-  mitraId            String?
-  mitra              MitraStatistik?         @relation(fields: [mitraId], references: [id], onDelete: Restrict)
-  nominal            Int
-  status             StatusPersetujuanPulsa  @default(DIAJUKAN)
-  catatanVerifikasi  String?
-  diverifikasiOlehId String?
-  diverifikasiOleh   User?                   @relation("PulsaDiverifikasiOleh", fields: [diverifikasiOlehId], references: [id], onDelete: SetNull)
-  diverifikasiAt     DateTime?
-  createdAt          DateTime                @default(now())
-  updatedAt          DateTime                @updatedAt
-
-  @@unique([kegiatanId, pegawaiId])
-  @@unique([kegiatanId, mitraId])
-  @@index([kegiatanId])
-  @@index([pegawaiId])
-  @@index([mitraId])
-}
-
-// ==========================================
-// PENGADAAN
-// ==========================================
-
-enum JenisPengadaan {
-  BARANG
-  JASA
-}
-
-enum StatusPengadaan {
-  DRAFT
-  USULAN
-  PROSES
-  KONTRAK
-  SELESAI
-  BATAL
-}
-
-model Pengadaan {
-  id            String @id @default(cuid())
-  kodePengadaan String @unique
-
-  tahunAnggaran  Int
-  tanggalUsulan  DateTime        @db.Date
-  jenisPengadaan JenisPengadaan  @default(BARANG)
-  namaProduk     String
-  detilPok       String
-  kodePok        String
-  status         StatusPengadaan @default(USULAN)
-
-  // Informasi Keuangan
-  rencana   Int
-  realisasi Int @default(0)
-
-  // Dokumen & Realisasi
-  formPermintaan       String?
-  linkKak              String?
-  jenisDokumen         String?
-  nomorDokumen         String?
-  tanggalDokumen       DateTime? @db.Date
-  namaPenyedia         String?
-  tanggalPembayaran    DateTime? @db.Date
-  nomorBuktiPembayaran String?
-  linkEpurchasing      String?
-  keterangan           String?
-
-  dicatatOleh String
-  pencatat    User   @relation(fields: [dicatatOleh], references: [id], onDelete: Restrict)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([tahunAnggaran])
-  @@index([tanggalUsulan])
-  @@index([status])
-  @@index([dicatatOleh])
 }

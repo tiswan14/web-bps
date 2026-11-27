@@ -45,7 +45,7 @@ export function AppHeader({ userName, userRole }: AppHeaderProps) {
 
   return (
     <>
-      <header className='flex h-16 shrink-0 items-center justify-between gap-3 rounded-r-xl border border-l-0 border-border bg-background px-4 sm:px-6'>
+      <header className='sticky top-0 z-50 flex h-16 shrink-0 items-center justify-between gap-3 rounded-r-xl border border-l-0 border-border bg-background px-4 sm:px-6'>
         {/* Breadcrumb */}
         <AppBreadcrumb />
 

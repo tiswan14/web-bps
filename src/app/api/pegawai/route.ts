@@ -1,8 +1,8 @@
-
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
 import { hasPermission } from '@/lib/auth/permissions'
+import bcrypt from 'bcryptjs'
 
 async function authorize() {
   const user = await getCurrentUser()
@@ -46,6 +46,13 @@ function getNullableString(payload: Record<string, unknown>, key: string) {
   return getString(payload, key) || null
 }
 
+// Membuang field yang bernilai null dari response.
+function omitNull<T extends Record<string, unknown>>(item: T) {
+  return Object.fromEntries(
+    Object.entries(item).filter(([, value]) => value !== null),
+  ) as Partial<T>
+}
+
 const pegawaiSelect = {
   id: true,
   nama: true,
@@ -65,12 +72,6 @@ const pegawaiSelect = {
   linkSkPangkat: true,
   foto: true,
   aktif: true,
-  fungsi: {
-    select: {
-      id: true,
-      nama: true,
-    },
-  },
   createdAt: true,
   updatedAt: true,
 }
@@ -93,41 +94,37 @@ export async function GET(request: NextRequest) {
     const golongan = searchParams.get('golongan')?.trim()
     const jabatan = searchParams.get('jabatan')?.trim()
     const aktifParam = searchParams.get('aktif')
-    const kategori = searchParams.get('kategori')
 
     const where = {
-      ...(kategori === 'pengelola-anggaran'
-        ? { fungsiId: { not: null } }
-        : {}),
       ...(search
         ? {
-            OR: [
-              {
-                nama: {
-                  contains: search,
-                  mode: 'insensitive' as const,
-                },
+          OR: [
+            {
+              nama: {
+                contains: search,
+                mode: 'insensitive' as const,
               },
-              { nipLama: { contains: search } },
-              { nipBaru: { contains: search } },
-              { nik: { contains: search } },
-              {
-                email: {
-                  contains: search,
-                  mode: 'insensitive' as const,
-                },
+            },
+            { nipLama: { contains: search } },
+            { nipBaru: { contains: search } },
+            { nik: { contains: search } },
+            {
+              email: {
+                contains: search,
+                mode: 'insensitive' as const,
               },
-            ],
-          }
+            },
+          ],
+        }
         : {}),
       ...(golongan ? { golongan } : {}),
       ...(jabatan
         ? {
-            jabatan: {
-              contains: jabatan,
-              mode: 'insensitive' as const,
-            },
-          }
+          jabatan: {
+            contains: jabatan,
+            mode: 'insensitive' as const,
+          },
+        }
         : {}),
       ...(aktifParam === 'true'
         ? { aktif: true }
@@ -150,7 +147,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: 'Data pegawai berhasil diambil',
-      data,
+      data: data.map(omitNull),
       pagination: {
         page,
         limit,
@@ -167,6 +164,9 @@ export async function GET(request: NextRequest) {
     )
   }
 }
+
+
+
 
 export async function POST(request: NextRequest) {
   try {
@@ -185,6 +185,7 @@ export async function POST(request: NextRequest) {
 
     const payload = body as Record<string, unknown>
 
+    // Data pegawai
     const nama = getString(payload, 'nama')
     const nipLama = getString(payload, 'nipLama')
     const nipBaru = getString(payload, 'nipBaru')
@@ -192,8 +193,13 @@ export async function POST(request: NextRequest) {
     const jabatan = getString(payload, 'jabatan')
     const golongan = getString(payload, 'golongan')
     const pangkat = getString(payload, 'pangkat')
-    const userId = getString(payload, 'userId')
 
+    // Data akun
+    const username = getString(payload, 'username')
+    const emailAkun = getString(payload, 'emailAkun')
+    const password = getString(payload, 'password')
+
+    // Validasi data pegawai
     if (
       !nama ||
       !nipLama ||
@@ -201,30 +207,45 @@ export async function POST(request: NextRequest) {
       !nik ||
       !jabatan ||
       !golongan ||
-      !pangkat ||
-      !userId
+      !pangkat
     ) {
       return NextResponse.json(
         {
           success: false,
           message:
-            'Nama, NIP lama, NIP baru, NIK, jabatan, golongan, pangkat, dan akun pengguna wajib diisi',
+            'Nama, NIP lama, NIP baru, NIK, jabatan, golongan, dan pangkat wajib diisi',
         },
         { status: 400 },
       )
     }
 
+    // Validasi data akun
+    if (!username || !emailAkun || !password) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Username, email akun, dan password wajib diisi',
+        },
+        { status: 400 },
+      )
+    }
+
+    if (password.length < 8) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Password minimal 8 karakter',
+        },
+        { status: 400 },
+      )
+    }
+
+    // Periksa duplikasi identitas pegawai
     const existingPegawai = await prisma.pegawai.findFirst({
       where: {
-        OR: [
-          { nipLama },
-          { nipBaru },
-          { nik },
-        ],
+        OR: [{ nipLama }, { nipBaru }, { nik }],
       },
-      select: {
-        id: true,
-      },
+      select: { id: true },
     })
 
     if (existingPegawai) {
@@ -237,77 +258,77 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        pegawai: {
-          select: { id: true },
-        },
+    // Periksa duplikasi akun
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        OR: [{ username }, { email: emailAkun }],
       },
+      select: { id: true },
     })
 
-    if (!user) {
-      return NextResponse.json(
-        { success: false, message: 'Akun pengguna tidak ditemukan' },
-        { status: 404 },
-      )
-    }
-
-    if (user.pegawai) {
+    if (existingUser) {
       return NextResponse.json(
         {
           success: false,
-          message: 'Akun pengguna sudah terhubung dengan pegawai lain',
+          message: 'Username atau email akun sudah digunakan',
         },
         { status: 409 },
       )
     }
 
-    const fungsiId = getNullableString(payload, 'fungsiId')
+    // Hash password menggunakan bcrypt
+    const passwordHash = await bcrypt.hash(password, 12)
 
-    if (fungsiId) {
-      const fungsi = await prisma.fungsi.findUnique({
-        where: { id: fungsiId },
-        select: { id: true },
+    // Buat User dan Pegawai secara atomik
+    const data = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          username,
+          email: emailAkun,
+          passwordHash,
+          role: 'PEGAWAI',
+        },
+        select: {
+          id: true,
+          username: true,
+          email: true,
+          role: true,
+        },
       })
 
-      if (!fungsi) {
-        return NextResponse.json(
-          { success: false, message: 'Fungsi tidak ditemukan' },
-          { status: 404 },
-        )
-      }
-    }
+      const pegawai = await tx.pegawai.create({
+        data: {
+          nama,
+          nipLama,
+          nipBaru,
+          nik,
+          jabatan,
+          golongan,
+          pangkat,
+          pendidikan: getNullableString(payload, 'pendidikan'),
+          noHp: getNullableString(payload, 'noHp'),
+          email: getNullableString(payload, 'email'),
+          npwp: getNullableString(payload, 'npwp'),
+          rekening: getNullableString(payload, 'rekening'),
+          bank: getNullableString(payload, 'bank'),
+          linkSkJabatan: getNullableString(payload, 'linkSkJabatan'),
+          linkSkPangkat: getNullableString(payload, 'linkSkPangkat'),
+          foto: getNullableString(payload, 'foto'),
+          userId: user.id,
+        },
+        select: pegawaiSelect,
+      })
 
-    const data = await prisma.pegawai.create({
-      data: {
-        nama,
-        nipLama,
-        nipBaru,
-        nik,
-        jabatan,
-        golongan,
-        pangkat,
-        pendidikan: getNullableString(payload, 'pendidikan'),
-        noHp: getNullableString(payload, 'noHp'),
-        email: getNullableString(payload, 'email'),
-        npwp: getNullableString(payload, 'npwp'),
-        rekening: getNullableString(payload, 'rekening'),
-        bank: getNullableString(payload, 'bank'),
-        linkSkJabatan: getNullableString(payload, 'linkSkJabatan'),
-        linkSkPangkat: getNullableString(payload, 'linkSkPangkat'),
-        foto: getNullableString(payload, 'foto'),
-        fungsiId,
-        userId,
-      },
-      select: pegawaiSelect,
+      return {
+        pegawai,
+        user,
+      }
     })
 
     return NextResponse.json(
       {
         success: true,
-        message: 'Pegawai berhasil ditambahkan',
+        message: 'Pegawai dan akun berhasil ditambahkan',
         data,
       },
       { status: 201 },
@@ -316,8 +337,10 @@ export async function POST(request: NextRequest) {
     console.error('[POST /api/pegawai]', error)
 
     return NextResponse.json(
-      { success: false, message: 'Gagal menambahkan pegawai' },
+      { success: false, message: 'Gagal menambahkan pegawai dan akun' },
       { status: 500 },
     )
   }
 }
+
+
